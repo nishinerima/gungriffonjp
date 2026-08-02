@@ -1,0 +1,134 @@
+@charset "UTF-8";
+
+.error-page {
+  min-width: 0;
+  color: var(--ink);
+  background: #e9e9e5;
+}
+
+.error-page__main {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: clamp(2rem, 7vw, 5rem) 1.25rem;
+  place-items: center;
+}
+
+.error-page__content {
+  width: min(100%, 34rem);
+  text-align: center;
+}
+
+.error-page__brand {
+  display: inline-block;
+  color: #111;
+  font-family: var(--site-wordmark-font);
+  font-size: clamp(1.3rem, 4vw, 1.75rem);
+  font-weight: var(--site-wordmark-weight);
+  letter-spacing: -0.065em;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.error-page__brand:hover,
+.error-page__brand:focus-visible {
+  color: #444;
+}
+
+.error-page__code {
+  margin: clamp(1.8rem, 5vh, 3.25rem) 0 0;
+  color: #111;
+  font-family: var(--site-wordmark-font);
+  font-size: clamp(4.75rem, 18vw, 8.5rem);
+  font-weight: var(--site-wordmark-weight);
+  letter-spacing: -0.075em;
+  line-height: 0.78;
+}
+
+.error-page__griffon-wrap {
+  position: relative;
+  display: block;
+  width: clamp(5.25rem, 19vw, 7.5rem);
+  margin: clamp(1.5rem, 4vh, 2.5rem) auto;
+}
+
+.error-page__griffon {
+  display: block;
+  width: 100%;
+}
+
+.error-page__question {
+  position: absolute;
+  top: 29%;
+  left: -20%;
+  color: #222;
+  font-family: var(--site-wordmark-font);
+  font-size: clamp(1.55rem, 5vw, 2.15rem);
+  font-weight: var(--site-wordmark-weight);
+  line-height: 1;
+  transform: rotate(-12deg);
+  transform-origin: center;
+}
+
+.error-page h1 {
+  margin: 0;
+  color: #111;
+  font-size: clamp(1.35rem, 4.5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+}
+
+.error-page__message {
+  margin: 0.9rem auto 0;
+  color: var(--muted);
+  font-size: clamp(0.9rem, 2.8vw, 1rem);
+  line-height: 1.8;
+}
+
+.error-page__home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  margin-top: clamp(1.75rem, 5vh, 2.5rem);
+  padding: 0.7rem 1.4rem;
+  color: #fff;
+  background: #222;
+  border: 2px solid #222;
+  font-weight: 800;
+  line-height: 1.3;
+  text-decoration: none;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.error-page__home:hover,
+.error-page__home:focus-visible {
+  color: #222;
+  background: transparent;
+  border-color: #222;
+}
+
+.error-page :is(.error-page__brand, .error-page__home):focus-visible {
+  outline: 3px solid #222;
+  outline-offset: 0.22rem;
+}
+
+@media (max-width: 360px) {
+  .error-page__main {
+    padding-inline: 1rem;
+  }
+
+  .error-page__message {
+    max-width: 17rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .error-page__home {
+    transition: none;
+  }
+}
