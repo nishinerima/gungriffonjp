@@ -176,6 +176,7 @@
   const griffon = landing.querySelector('[data-home-griffon]');
   const footer = landing.querySelector('[data-home-footer]');
   const dockTarget = landing.querySelector('[data-home-dock-target]');
+  const hero = landing.querySelector('.home-lp-hero-spacer');
   const notesBand = landing.querySelector('.home-link-band--notes');
   const firstSubsite = landing.querySelector('.home-link-band--subsite');
   const subsiteSections = [...landing.querySelectorAll('.home-link-band--subsite')];
@@ -188,6 +189,9 @@
   const carouselDots = [...landing.querySelectorAll('[data-home-carousel-dot]')];
   const previousButton = landing.querySelector('[data-home-carousel-prev]');
   const nextButton = landing.querySelector('[data-home-carousel-next]');
+  const landingMeasuredSections = [
+    ...new Set([...griffonSurfaces, ...parallaxSections, ...subsiteSections]),
+  ];
   const rootStyle = document.body.style;
   let carouselIndex = 0;
   let carouselTimer;
@@ -245,6 +249,23 @@
   const smoothstep = (progress) => progress * progress * (3 - 2 * progress);
   const easeOutCubic = (progress) => 1 - Math.pow(1 - progress, 3);
   const inverseEaseOutCubic = (progress) => 1 - Math.cbrt(1 - progress);
+  const setLandingStyleProperty = (style, property, value) => {
+    if (style.getPropertyValue(property) === value) return;
+    style.setProperty(property, value);
+  };
+  const removeLandingStyleProperty = (style, property) => {
+    if (!style.getPropertyValue(property)) return;
+    style.removeProperty(property);
+  };
+  const isLandingSectionNearby = (rect, viewportHeight) =>
+    rect.bottom >= -viewportHeight && rect.top <= viewportHeight * 2;
+  const readLandingSectionRects = () =>
+    new Map(
+      landingMeasuredSections.map((section) => [
+        section,
+        section.getBoundingClientRect(),
+      ])
+    );
 
   const setMobileMenuOpen = (open) => {
     mobileMenuOpen = !desktop.matches && open;
@@ -276,10 +297,9 @@
     }
   });
 
-  const drawWnpxCamo = () => {
+  const drawWnpxCamo = (rect = wnpxCamo?.parentElement?.getBoundingClientRect()) => {
     if (!wnpxCamo) return;
     const context = wnpxCamo.getContext('2d');
-    const rect = wnpxCamo.parentElement?.getBoundingClientRect();
     if (!context || !rect) return;
 
     const width = Math.max(1, Math.round(rect.width));
@@ -397,11 +417,18 @@
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const scrollTop = window.scrollY;
-    const hero = landing.querySelector('.home-lp-hero-spacer');
     const heroHeight = hero?.getBoundingClientRect().height || viewportHeight * 0.68;
     const headerCompact = scrollTop > Math.min(heroHeight * 0.2, 96);
 
     document.body.classList.toggle('is-home-mobile-header-compact', headerCompact);
+
+    const landingSectionRects = readLandingSectionRects();
+    const mobileNotesRect = notesBand
+      ? landingSectionRects.get(notesBand)
+      : undefined;
+    const mobileFooterRect = footer?.getBoundingClientRect();
+    const mobileDockTargetRect = dockTarget?.getBoundingClientRect();
+    const wnpxCamoRect = wnpxCamo?.parentElement?.getBoundingClientRect();
 
     const mobileGriffonAspect = 865.25 / 780.54;
     const mobileBaseWidth = clamp(viewportWidth * 1.16, 432, 592);
@@ -416,7 +443,6 @@
           smoothstep(clamp(scrollTop / Math.max(1, heroHeight * 1.5), 0, 1))
         );
     const mobileBaseTop = -96 + mobileHeroTravel;
-    const mobileNotesRect = notesBand?.getBoundingClientRect();
     const mobileNotesProgress = mobileNotesRect
       ? smoothstep(
           clamp(
@@ -450,7 +476,7 @@
       document.documentElement.scrollHeight - viewportHeight
     );
     const mobileBottomDistance = Math.max(0, mobileMaxScroll - scrollTop);
-    const mobileFooterBottom = footer?.getBoundingClientRect().bottom ?? Infinity;
+    const mobileFooterBottom = mobileFooterRect?.bottom ?? Infinity;
     const mobileBottomEnterDistance = 32;
     const mobileBottomExitDistance = 40;
     const mobileReachedBottom =
@@ -540,7 +566,6 @@
     }
 
     const mobileDockProgress = dockProgress;
-    const mobileDockTargetRect = dockTarget?.getBoundingClientRect();
     let mobileGriffonWidth = mobileBaseWidth;
     let mobileGriffonLeft = mobileSourceLeft;
     let mobileGriffonTop = mobileSourceTop;
@@ -564,9 +589,21 @@
     }
 
     if (griffon) {
-      griffon.style.width = `${mobileGriffonWidth.toFixed(2)}px`;
-      griffon.style.left = `${mobileGriffonLeft.toFixed(2)}px`;
-      griffon.style.top = `${mobileGriffonTop.toFixed(2)}px`;
+      setLandingStyleProperty(
+        griffon.style,
+        'width',
+        `${mobileGriffonWidth.toFixed(2)}px`
+      );
+      setLandingStyleProperty(
+        griffon.style,
+        'left',
+        `${mobileGriffonLeft.toFixed(2)}px`
+      );
+      setLandingStyleProperty(
+        griffon.style,
+        'top',
+        `${mobileGriffonTop.toFixed(2)}px`
+      );
       griffon.classList.toggle('is-docking', mobileDockProgress > 0);
       griffon.classList.toggle(
         'is-undocking',
@@ -577,13 +614,14 @@
     const griffonRect = griffon?.getBoundingClientRect();
     if (griffonRect) {
       griffonLayers.forEach(({ surface, layer }) => {
-        const surfaceRect = surface.getBoundingClientRect();
+        const surfaceRect = landingSectionRects.get(surface);
+        if (!surfaceRect) return;
         const visibleTop = Math.max(griffonRect.top, surfaceRect.top);
         const visibleBottom = Math.min(griffonRect.bottom, surfaceRect.bottom);
 
         if (visibleBottom <= visibleTop) {
-          layer.style.clipPath = 'inset(0 0 100% 0)';
-          layer.style.opacity = '0';
+          setLandingStyleProperty(layer.style, 'clip-path', 'inset(0 0 100% 0)');
+          setLandingStyleProperty(layer.style, 'opacity', '0');
           return;
         }
 
@@ -593,63 +631,88 @@
           0,
           griffonRect.height
         );
-        layer.style.clipPath =
-          `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`;
+        setLandingStyleProperty(
+          layer.style,
+          'clip-path',
+          `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`
+        );
         const mobileSurfaceOpacity = surface.classList.contains(
           'home-link-band--parent'
         )
           ? 0.7
           : 1;
-        layer.style.opacity = String(
-          mobileSurfaceOpacity * (1 - mobileDockProgress)
+        setLandingStyleProperty(
+          layer.style,
+          'opacity',
+          String(mobileSurfaceOpacity * (1 - mobileDockProgress))
         );
       });
-      dockLayer.style.opacity = String(mobileDockProgress);
+      setLandingStyleProperty(
+        dockLayer.style,
+        'opacity',
+        String(mobileDockProgress)
+      );
     }
 
     parallaxSections.forEach((section) => {
       if (reducedMotion.matches) {
-        section.style.removeProperty('--home-parallax-near');
-        section.style.removeProperty('--home-parallax-mid');
-        section.style.removeProperty('--home-parallax-far');
-        section.style.removeProperty('--home-parallax-back');
+        removeLandingStyleProperty(section.style, '--home-parallax-near');
+        removeLandingStyleProperty(section.style, '--home-parallax-mid');
+        removeLandingStyleProperty(section.style, '--home-parallax-far');
+        removeLandingStyleProperty(section.style, '--home-parallax-back');
         return;
       }
 
-      const rect = section.getBoundingClientRect();
+      const rect = landingSectionRects.get(section);
+      if (!rect) return;
+      if (!isLandingSectionNearby(rect, viewportHeight)) return;
       const distance = rect.top + rect.height * 0.5 - viewportHeight * 0.5;
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-near',
         `${clamp(distance * -0.18, -104, 104).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-mid',
         `${clamp(distance * -0.11, -68, 68).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-far',
         `${clamp(distance * -0.06, -40, 40).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-back',
         `${clamp(distance * 0.022, -20, 20).toFixed(2)}px`
       );
     });
 
     subsiteSections.forEach((section) => {
-      const rect = section.getBoundingClientRect();
+      const rect = landingSectionRects.get(section);
+      if (!rect) return;
+      if (!isLandingSectionNearby(rect, viewportHeight)) return;
       const visibleTop = Math.max(0, rect.top);
       const visibleBottom = Math.min(viewportHeight, rect.bottom);
       const visibleHeight = Math.max(0, visibleBottom - visibleTop);
       const availableHeight = Math.max(1, Math.min(rect.height, viewportHeight));
       const visibleRatio = clamp(visibleHeight / availableHeight, 0, 1);
       const focus = smoothstep(clamp((visibleRatio - 0.2) / 0.62, 0, 1));
-      section.style.setProperty('--home-subsite-focus', focus.toFixed(4));
-      section.style.setProperty('--home-subsite-dim', (0.5 * (1 - focus)).toFixed(4));
-      section.style.setProperty('--home-subsite-brightness', mix(0.34, 1, focus).toFixed(4));
+      setLandingStyleProperty(section.style, '--home-subsite-focus', focus.toFixed(4));
+      setLandingStyleProperty(
+        section.style,
+        '--home-subsite-dim',
+        (0.5 * (1 - focus)).toFixed(4)
+      );
+      setLandingStyleProperty(
+        section.style,
+        '--home-subsite-brightness',
+        mix(0.34, 1, focus).toFixed(4)
+      );
     });
 
-    drawWnpxCamo();
+    drawWnpxCamo(wnpxCamoRect);
     lastScrollTop = scrollTop;
     if (mobileNeedsDockFrame) requestLandingUpdate();
   };
@@ -670,12 +733,32 @@
     const brandStartTop = clamp(viewportHeight * 0.1, 48, 96);
     const brandStartLeft = clamp(viewportWidth * 0.05, 32, 72);
 
-    rootStyle.setProperty('--home-hero-height', `${headerHeight.toFixed(2)}px`);
-    rootStyle.setProperty('--home-brand-scale', mix(1, 0.37, headerProgress).toFixed(4));
-    rootStyle.setProperty('--home-brand-top', `${mix(brandStartTop, 16, headerProgress).toFixed(2)}px`);
-    rootStyle.setProperty('--home-brand-left', `${brandStartLeft.toFixed(2)}px`);
-    rootStyle.setProperty('--home-fan-label-gap', `${mix(1.5, 0.35, headerProgress).toFixed(3)}rem`);
-    rootStyle.setProperty('--home-fan-label-scale', mix(1, 1.38, headerProgress).toFixed(4));
+    setLandingStyleProperty(rootStyle, '--home-hero-height', `${headerHeight.toFixed(2)}px`);
+    setLandingStyleProperty(
+      rootStyle,
+      '--home-brand-scale',
+      mix(1, 0.37, headerProgress).toFixed(4)
+    );
+    setLandingStyleProperty(
+      rootStyle,
+      '--home-brand-top',
+      `${mix(brandStartTop, 16, headerProgress).toFixed(2)}px`
+    );
+    setLandingStyleProperty(
+      rootStyle,
+      '--home-brand-left',
+      `${brandStartLeft.toFixed(2)}px`
+    );
+    setLandingStyleProperty(
+      rootStyle,
+      '--home-fan-label-gap',
+      `${mix(1.5, 0.35, headerProgress).toFixed(3)}rem`
+    );
+    setLandingStyleProperty(
+      rootStyle,
+      '--home-fan-label-scale',
+      mix(1, 1.38, headerProgress).toFixed(4)
+    );
     const headerCompact = headerProgress > 0.985;
     document.body.classList.toggle('is-home-header-compact', headerCompact);
     if (headerCompact && !headerWasCompact) {
@@ -694,6 +777,17 @@
       headerNav.setAttribute('aria-hidden', String(!headerCompact));
     }
 
+    const landingSectionRects = readLandingSectionRects();
+    const notesRect = notesBand
+      ? landingSectionRects.get(notesBand)
+      : undefined;
+    const firstSubsiteRect = firstSubsite
+      ? landingSectionRects.get(firstSubsite)
+      : undefined;
+    const footerRect = footer?.getBoundingClientRect();
+    const targetRect = dockTarget?.getBoundingClientRect();
+    const wnpxCamoRect = wnpxCamo?.parentElement?.getBoundingClientRect();
+
     const griffonAspect = 865.25 / 780.54;
     const griffonAnchorWidth = clamp(viewportWidth * 0.46, 460, 760);
     const baseWidth = griffonAnchorWidth * 2;
@@ -711,8 +805,6 @@
           clamp(viewportHeight * 0.035, 24, 36),
           idleDriftProgress
         );
-    const notesRect = notesBand?.getBoundingClientRect();
-    const firstSubsiteRect = firstSubsite?.getBoundingClientRect();
     const notesReady = Boolean(
       notesRect &&
       firstSubsiteRect &&
@@ -720,8 +812,7 @@
     );
     const notesWidth = baseWidth;
     const notesLeft = baseLeft;
-    const footerHeight =
-      footer?.getBoundingClientRect().height || 250;
+    const footerHeight = footerRect?.height || 250;
     const notesHeight = notesRect?.height || 480;
     const notesFaceCenter =
       viewportHeight - footerHeight - notesHeight * 0.5;
@@ -756,7 +847,6 @@
     const sourceTop = notesReady
       ? mix(baseTop + idleDrift, notesTop, notesSlideProgress)
       : baseTop + idleDrift;
-    const targetRect = dockTarget?.getBoundingClientRect();
     const maxScroll = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
     const bottomDistance = Math.max(0, maxScroll - scrollTop);
     const atBottom = bottomDistance <= 1;
@@ -841,9 +931,9 @@
       top = mix(sourceTop, targetRect.top, dockProgress);
     }
 
-    griffon.style.width = `${width.toFixed(2)}px`;
-    griffon.style.left = `${left.toFixed(2)}px`;
-    griffon.style.top = `${top.toFixed(2)}px`;
+    setLandingStyleProperty(griffon.style, 'width', `${width.toFixed(2)}px`);
+    setLandingStyleProperty(griffon.style, 'left', `${left.toFixed(2)}px`);
+    setLandingStyleProperty(griffon.style, 'top', `${top.toFixed(2)}px`);
     griffon.classList.toggle('is-docking', dockProgress > 0);
 
     const griffonHeight = width * griffonAspect;
@@ -855,58 +945,73 @@
     );
     griffonLayers.forEach(({ surface, layer }) => {
       if (hideGriffonForSubsites) {
-        layer.style.clipPath = 'inset(0 0 100% 0)';
-        layer.style.opacity = '0';
+        setLandingStyleProperty(layer.style, 'clip-path', 'inset(0 0 100% 0)');
+        setLandingStyleProperty(layer.style, 'opacity', '0');
         return;
       }
 
-      const rect = surface.getBoundingClientRect();
+      const rect = landingSectionRects.get(surface);
+      if (!rect) return;
       const visibleTop = Math.max(top, rect.top);
       const visibleBottom = Math.min(griffonBottom, rect.bottom);
 
       if (visibleBottom <= visibleTop || dockProgress >= 1) {
-        layer.style.clipPath = 'inset(0 0 100% 0)';
-        layer.style.opacity = '0';
+        setLandingStyleProperty(layer.style, 'clip-path', 'inset(0 0 100% 0)');
+        setLandingStyleProperty(layer.style, 'opacity', '0');
         return;
       }
 
       const clipTop = clamp(visibleTop - top, 0, griffonHeight);
       const clipBottom = clamp(griffonBottom - visibleBottom, 0, griffonHeight);
-      layer.style.clipPath = `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`;
+      setLandingStyleProperty(
+        layer.style,
+        'clip-path',
+        `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`
+      );
       const surfaceOpacity = surface.classList.contains('home-link-band--parent')
         ? 0.7
         : 1;
-      layer.style.opacity = String((1 - dockProgress) * surfaceOpacity);
+      setLandingStyleProperty(
+        layer.style,
+        'opacity',
+        String((1 - dockProgress) * surfaceOpacity)
+      );
     });
-    dockLayer.style.opacity = String(dockProgress);
+    setLandingStyleProperty(dockLayer.style, 'opacity', String(dockProgress));
 
     parallaxSections.forEach((section) => {
       if (reducedMotion.matches) {
-        section.style.removeProperty('--home-parallax-near');
-        section.style.removeProperty('--home-parallax-mid');
-        section.style.removeProperty('--home-parallax-far');
-        section.style.removeProperty('--home-parallax-back');
-        section.style.removeProperty('--home-ww3-atlas-angle');
-        section.style.removeProperty('--home-ww3-timeline-angle');
-        section.style.removeProperty('--home-ww3-glossary-angle');
+        removeLandingStyleProperty(section.style, '--home-parallax-near');
+        removeLandingStyleProperty(section.style, '--home-parallax-mid');
+        removeLandingStyleProperty(section.style, '--home-parallax-far');
+        removeLandingStyleProperty(section.style, '--home-parallax-back');
+        removeLandingStyleProperty(section.style, '--home-ww3-atlas-angle');
+        removeLandingStyleProperty(section.style, '--home-ww3-timeline-angle');
+        removeLandingStyleProperty(section.style, '--home-ww3-glossary-angle');
         return;
       }
 
-      const rect = section.getBoundingClientRect();
+      const rect = landingSectionRects.get(section);
+      if (!rect) return;
+      if (!isLandingSectionNearby(rect, viewportHeight)) return;
       const distance = rect.top + rect.height * 0.5 - viewportHeight * 0.5;
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-near',
         `${clamp(distance * -0.045, -44, 44).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-mid',
         `${clamp(distance * -0.095, -88, 88).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-far',
         `${clamp(distance * -0.17, -150, 150).toFixed(2)}px`
       );
-      section.style.setProperty(
+      setLandingStyleProperty(
+        section.style,
         '--home-parallax-back',
         `${clamp(distance * 0.032, -36, 36).toFixed(2)}px`
       );
@@ -917,15 +1022,18 @@
         const pageOpen = smoothstep(
           clamp((openStart - rect.top) / Math.max(1, openStart - openEnd), 0, 1)
         );
-        section.style.setProperty(
+        setLandingStyleProperty(
+          section.style,
           '--home-ww3-atlas-angle',
           `${(-46 + pageOpen * 11).toFixed(2)}deg`
         );
-        section.style.setProperty(
+        setLandingStyleProperty(
+          section.style,
           '--home-ww3-timeline-angle',
           `${(-42 + pageOpen * 12).toFixed(2)}deg`
         );
-        section.style.setProperty(
+        setLandingStyleProperty(
+          section.style,
           '--home-ww3-glossary-angle',
           `${(-38 + pageOpen * 13).toFixed(2)}deg`
         );
@@ -933,19 +1041,29 @@
     });
 
     subsiteSections.forEach((section) => {
-      const rect = section.getBoundingClientRect();
+      const rect = landingSectionRects.get(section);
+      if (!rect) return;
+      if (!isLandingSectionNearby(rect, viewportHeight)) return;
       const visibleTop = Math.max(88, rect.top);
       const visibleBottom = Math.min(viewportHeight, rect.bottom);
       const visibleHeight = Math.max(0, visibleBottom - visibleTop);
       const availableHeight = Math.max(1, Math.min(rect.height, viewportHeight - 88));
       const visibleRatio = clamp(visibleHeight / availableHeight, 0, 1);
       const focus = smoothstep(clamp((visibleRatio - 0.38) / 0.52, 0, 1));
-      section.style.setProperty('--home-subsite-focus', focus.toFixed(4));
-      section.style.setProperty('--home-subsite-dim', (0.62 * (1 - focus)).toFixed(4));
-      section.style.setProperty('--home-subsite-brightness', mix(0.58, 1, focus).toFixed(4));
+      setLandingStyleProperty(section.style, '--home-subsite-focus', focus.toFixed(4));
+      setLandingStyleProperty(
+        section.style,
+        '--home-subsite-dim',
+        (0.62 * (1 - focus)).toFixed(4)
+      );
+      setLandingStyleProperty(
+        section.style,
+        '--home-subsite-brightness',
+        mix(0.58, 1, focus).toFixed(4)
+      );
     });
 
-    drawWnpxCamo();
+    drawWnpxCamo(wnpxCamoRect);
     lastScrollTop = scrollTop;
     if (needsDockFrame) requestLandingUpdate();
   };

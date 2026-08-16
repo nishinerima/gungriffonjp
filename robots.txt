@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://mirror.gungriffon.jp/sitemap.xml
+Sitemap: https://gungriffon.jp/sitemap.xml
