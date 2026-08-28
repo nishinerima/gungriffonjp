@@ -31,8 +31,8 @@
   });
 
   const mobileGlobalNavLabels = new Map([
-    ['.nav-info', ['INFO', 'サイト情報']],
-    ['.nav-catalog', ['CATALOG', 'ゲーム＆アイテム']],
+    ['.nav-info', ['SITE INFO', 'サイト情報']],
+    ['.nav-catalog', ['OVERVIEW', 'シリーズ概要・作品解説']],
     ['.nav-tips', ['TIPS', 'お役立ち情報']],
     ['.nav-wnpx', ['FANWORK', '西練馬駐屯地PX']],
     ['.nav-mu3', ['WW3 BACKGROUND', '第三次世界大戦資料館']],
@@ -1213,8 +1213,221 @@
 })();
 
 (() => {
+  if (!document.body.classList.contains('catalog-detail-page')) return;
+
+  const main = document.querySelector('main#main-content');
+  if (!main) return;
+
+  const sections = [...main.querySelectorAll(':scope > .content-panel')]
+    .map((section) => ({
+      section,
+      heading: section.querySelector(':scope > h2'),
+      body: section.querySelector(':scope > .content-panel__body'),
+    }))
+    .filter(({ heading, body }) => heading && body);
+  if (!sections.length) return;
+
+  const mobileDetailMedia = window.matchMedia('(max-width: 760px)');
+
+  const getHashTarget = (hash = window.location.hash) => {
+    if (!hash?.startsWith('#') || hash.length < 2) return null;
+
+    try {
+      return document.getElementById(decodeURIComponent(hash.slice(1)));
+    } catch {
+      return null;
+    }
+  };
+
+  const getTargetSection = (target) => {
+    const section = target?.closest('.content-panel');
+    return section?.parentElement === main ? section : null;
+  };
+
+  const notifySectionLayoutChange = () => {
+    document.dispatchEvent(new Event('catalog-section-toggle'));
+  };
+
+  const setSectionExpanded = (entry, expanded, notify = true) => {
+    const { section, heading, body } = entry;
+    const toggle = heading.querySelector(':scope > .catalog-section-toggle');
+    if (!toggle) return;
+
+    toggle.setAttribute('aria-expanded', String(expanded));
+    body.hidden = !expanded;
+    section.classList.toggle('is-mobile-collapsed', !expanded);
+
+    if (notify) notifySectionLayoutChange();
+  };
+
+  const enhanceSection = (entry) => {
+    const { section, heading, body } = entry;
+    if (heading.querySelector(':scope > .catalog-section-toggle')) return;
+
+    if (!body.id) {
+      body.id = `${section.id || 'catalog-section'}-content`;
+    }
+
+    const toggle = document.createElement('button');
+    toggle.className = 'catalog-section-toggle';
+    toggle.type = 'button';
+    toggle.setAttribute('aria-controls', body.id);
+    while (heading.firstChild) {
+      toggle.append(heading.firstChild);
+    }
+    heading.append(toggle);
+    section.classList.add('is-mobile-collapsible');
+    setSectionExpanded(entry, false, false);
+
+    toggle.addEventListener('click', () => {
+      setSectionExpanded(entry, toggle.getAttribute('aria-expanded') !== 'true');
+    });
+
+    toggle.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggle.click();
+    });
+  };
+
+  const restoreSection = ({ section, heading, body }) => {
+    const toggle = heading.querySelector(':scope > .catalog-section-toggle');
+    if (toggle) {
+      toggle.replaceWith(...toggle.childNodes);
+    }
+
+    body.hidden = false;
+    section.classList.remove('is-mobile-collapsible', 'is-mobile-collapsed');
+  };
+
+  const expandHashTarget = (scrollToTarget = false) => {
+    if (!mobileDetailMedia.matches) return false;
+
+    const target = getHashTarget();
+    const targetSection = getTargetSection(target);
+    const entry = sections.find(({ section }) => section === targetSection);
+    if (!entry) return false;
+
+    setSectionExpanded(entry, true, false);
+    if (scrollToTarget) {
+      window.requestAnimationFrame(() => target.scrollIntoView());
+    }
+    notifySectionLayoutChange();
+    return true;
+  };
+
+  const syncDetailSections = () => {
+    if (mobileDetailMedia.matches) {
+      sections.forEach(enhanceSection);
+      expandHashTarget(Boolean(window.location.hash));
+    } else {
+      sections.forEach(restoreSection);
+      notifySectionLayoutChange();
+    }
+  };
+
+  document.addEventListener(
+    'click',
+    (event) => {
+      if (!mobileDetailMedia.matches) return;
+
+      const link = event.target.closest('a[href^="#"]');
+      const target = link ? getHashTarget(link.getAttribute('href')) : null;
+      const targetSection = getTargetSection(target);
+      const entry = sections.find(({ section }) => section === targetSection);
+      if (entry) setSectionExpanded(entry, true);
+    },
+    true,
+  );
+
+  window.addEventListener('hashchange', () => expandHashTarget(true));
+  window.addEventListener('pageshow', () => {
+    if (window.location.hash) expandHashTarget(true);
+  });
+  if (mobileDetailMedia.addEventListener) {
+    mobileDetailMedia.addEventListener('change', syncDetailSections);
+  } else {
+    mobileDetailMedia.addListener(syncDetailSections);
+  }
+
+  syncDetailSections();
+})();
+
+(() => {
   const nav = document.querySelector('.page-nav');
   if (!nav) return;
+
+  const catalogDetailSubtrees = [];
+  let activeLink;
+
+  const syncCatalogDetailActiveMarker = () => {
+    catalogDetailSubtrees.forEach((item) => {
+      const parentLink = item.querySelector(':scope > a[href^="#"]');
+      const subtree = item.querySelector(':scope > ul');
+      const hasActiveChild = Boolean(activeLink && subtree?.contains(activeLink));
+      const showMarkerOnParent =
+        hasActiveChild && !item.classList.contains('is-subtree-open');
+
+      parentLink?.classList.toggle(
+        'is-scroll-parent-active',
+        showMarkerOnParent,
+      );
+    });
+  };
+
+  const setCatalogDetailSubtreeOpen = (item, open) => {
+    const toggle = item.querySelector(':scope > .page-nav__subtree-toggle');
+    if (!toggle) return;
+
+    const parentLink = item.querySelector(':scope > a[href^="#"]');
+    const label = parentLink?.textContent.replace(/\s+/g, ' ').trim() || 'この項目';
+    item.classList.toggle('is-subtree-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute(
+      'aria-label',
+      `${label}の下位項目を${open ? '閉じる' : '開く'}`,
+    );
+    syncCatalogDetailActiveMarker();
+  };
+
+  if (document.body.classList.contains('catalog-detail-page')) {
+    const topLevelItems = nav.querySelectorAll(':scope > ul > li');
+    let subtreeIndex = 0;
+
+    topLevelItems.forEach((item) => {
+      const parentLink = item.querySelector(':scope > a[href^="#"]');
+      const subtree = item.querySelector(':scope > ul');
+      if (!parentLink || !subtree) return;
+
+      subtreeIndex += 1;
+      if (!subtree.id) {
+        subtree.id = `page-nav-subtree-${subtreeIndex}`;
+      }
+
+      const toggle = document.createElement('button');
+      toggle.className = 'page-nav__subtree-toggle';
+      toggle.type = 'button';
+      toggle.setAttribute('aria-controls', subtree.id);
+      toggle.setAttribute('aria-expanded', 'false');
+
+      item.classList.add('page-nav__item--collapsible');
+      item.insertBefore(toggle, parentLink);
+      catalogDetailSubtrees.push(item);
+      setCatalogDetailSubtreeOpen(item, false);
+
+      const toggleSubtree = () => {
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        setCatalogDetailSubtreeOpen(item, open);
+      };
+
+      toggle.addEventListener('click', toggleSubtree);
+      toggle.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        toggleSubtree();
+      });
+    });
+  }
 
   const itemSelector = document.body.classList.contains('mu3-page--gloss')
     ? ':scope > ul > li > a[href^="#"]'
@@ -1233,11 +1446,35 @@
     '.home-page, .info-page, .news-page, .catalog-page, .tips-page, .notes-page',
   );
   const mobileNavMedia = window.matchMedia('(max-width: 760px)');
+  const siteShell = nav.closest('.site-shell');
   const topLevelList = nav.querySelector(':scope > ul');
   let mobileToggle;
   let mobileLabel;
   let mobileIndicator;
   let mobileStateFrame;
+  let mobileNavRowHeight = 0;
+
+  const syncMobileNavRowHeight = () => {
+    if (!siteShell) return;
+
+    if (!mobileNavMedia.matches) {
+      siteShell.style.removeProperty('--mobile-page-nav-row-height');
+      mobileNavRowHeight = 0;
+      return;
+    }
+
+    if (!mobileToggle || nav.classList.contains('is-mobile-stuck')) return;
+
+    siteShell.style.removeProperty('--mobile-page-nav-row-height');
+    const expandedHeight = nav.getBoundingClientRect().height;
+    if (expandedHeight <= 0) return;
+
+    siteShell.style.setProperty(
+      '--mobile-page-nav-row-height',
+      `${expandedHeight}px`,
+    );
+    mobileNavRowHeight = expandedHeight;
+  };
 
   const getLinkLabel = (link) => link.textContent.replace(/\s+/g, ' ').trim();
   const getHierarchyLabel = (link) => {
@@ -1287,14 +1524,25 @@
 
     if (!mobileNavMedia.matches) {
       nav.classList.remove('is-mobile-stuck', 'is-mobile-open');
+      siteShell?.classList.remove('is-mobile-nav-stuck');
+      syncMobileNavRowHeight();
       updateMobileToggle();
       return;
     }
 
+    if (!mobileNavRowHeight && !nav.classList.contains('is-mobile-stuck')) {
+      syncMobileNavRowHeight();
+    }
+
     const isStuck = window.scrollY > 0 && nav.getBoundingClientRect().top <= 0.5;
+    const wasStuck = nav.classList.contains('is-mobile-stuck');
     nav.classList.toggle('is-mobile-stuck', isStuck);
+    siteShell?.classList.toggle('is-mobile-nav-stuck', isStuck);
     if (!isStuck) {
       nav.classList.remove('is-mobile-open');
+      if (wasStuck || !mobileNavRowHeight) {
+        syncMobileNavRowHeight();
+      }
     }
     updateMobileToggle();
   };
@@ -1348,6 +1596,7 @@
     mobileToggle.append(mobileLabel, mobileIndicator);
     nav.prepend(mobileToggle);
     nav.classList.add('is-mobile-enhanced');
+    syncMobileNavRowHeight();
 
     mobileToggle.addEventListener('click', () => {
       setMobileNavOpen(!nav.classList.contains('is-mobile-open'));
@@ -1371,10 +1620,15 @@
       mobileToggle.focus();
     });
 
+    const handleMobileNavMediaChange = () => {
+      mobileNavRowHeight = 0;
+      scheduleMobileNavState();
+    };
+
     if (mobileNavMedia.addEventListener) {
-      mobileNavMedia.addEventListener('change', scheduleMobileNavState);
+      mobileNavMedia.addEventListener('change', handleMobileNavMediaChange);
     } else {
-      mobileNavMedia.addListener(scheduleMobileNavState);
+      mobileNavMedia.addListener(handleMobileNavMediaChange);
     }
   }
 
@@ -1382,7 +1636,6 @@
   root.classList.add('is-scroll-initializing');
   nav.classList.add('is-scroll-initializing');
 
-  let activeLink;
   let frame;
   let initializationTimer;
   let initializationFrame;
@@ -1399,6 +1652,7 @@
     activeLink = link;
     activeLink.classList.add('is-scroll-active');
     activeLink.setAttribute('aria-current', 'location');
+    syncCatalogDetailActiveMarker();
     updateMobileToggle();
   };
 
@@ -1454,11 +1708,17 @@
   };
 
   window.addEventListener('scroll', scheduleUpdate, { passive: true });
-  window.addEventListener('resize', scheduleUpdate);
+  document.addEventListener('catalog-section-toggle', scheduleUpdate);
+  window.addEventListener('resize', () => {
+    mobileNavRowHeight = 0;
+    scheduleUpdate();
+  });
 
   const finishInitialization = () => {
     const fontsReady = document.fonts?.ready ?? Promise.resolve();
     fontsReady.then(() => {
+      mobileNavRowHeight = 0;
+      syncMobileNavRowHeight();
       initializationCanFinish = true;
       scheduleInitializationFinish();
     });
@@ -1472,4 +1732,164 @@
 
   update();
   syncMobileNavState();
+})();
+
+(() => {
+  const noteLinks = [...document.querySelectorAll('a[role="doc-noteref"][href^="#"]')];
+  if (!noteLinks.length) return;
+
+  const canHover = window.matchMedia('(hover: hover)');
+  const preview = document.createElement('aside');
+  const label = document.createElement('div');
+  const body = document.createElement('div');
+  let activeLink;
+  let hideTimer;
+
+  preview.id = 'citation-preview';
+  preview.className = 'citation-preview';
+  preview.setAttribute('role', 'tooltip');
+  preview.hidden = true;
+
+  label.className = 'citation-preview__label';
+  body.className = 'citation-preview__body';
+  preview.append(label, body);
+  document.body.append(preview);
+
+  const positionPreview = () => {
+    if (preview.hidden || !activeLink) return;
+
+    const triggerRect = activeLink.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    const gap = 8;
+    const edge = 12;
+    const centeredLeft = triggerRect.left + triggerRect.width / 2 - previewRect.width / 2;
+    const left = Math.min(
+      Math.max(centeredLeft, edge),
+      Math.max(edge, window.innerWidth - previewRect.width - edge)
+    );
+    const fitsBelow = triggerRect.bottom + gap + previewRect.height <= window.innerHeight - edge;
+    const top = fitsBelow
+      ? triggerRect.bottom + gap
+      : Math.max(edge, triggerRect.top - previewRect.height - gap);
+
+    preview.style.left = `${Math.round(left)}px`;
+    preview.style.top = `${Math.round(top)}px`;
+  };
+
+  const showPreview = (link) => {
+    window.clearTimeout(hideTimer);
+    const targetId = decodeURIComponent(link.hash.slice(1));
+    const note = document.getElementById(targetId);
+    const noteBody = note
+      ?.querySelector(':scope > span:not(.citation-backrefs)');
+    if (!noteBody?.textContent.trim()) return;
+
+    activeLink = link;
+    label.textContent = link.getAttribute('aria-label') || link.textContent.trim();
+    const noteBodyClone = noteBody.cloneNode(true);
+    body.replaceChildren(...noteBodyClone.childNodes);
+    link.setAttribute('aria-describedby', preview.id);
+    preview.hidden = false;
+    positionPreview();
+  };
+
+  const hidePreview = (link = activeLink) => {
+    window.clearTimeout(hideTimer);
+    link?.removeAttribute('aria-describedby');
+    if (link !== activeLink) return;
+
+    activeLink = undefined;
+    preview.hidden = true;
+    preview.style.removeProperty('left');
+    preview.style.removeProperty('top');
+  };
+
+  const scheduleHide = (link = activeLink) => {
+    window.clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(() => hidePreview(link), 120);
+  };
+
+  noteLinks.forEach((link) => {
+    link.addEventListener('pointerenter', () => {
+      if (canHover.matches) showPreview(link);
+    });
+    link.addEventListener('pointerleave', () => {
+      if (canHover.matches && !link.matches(':focus-visible')) scheduleHide(link);
+    });
+    link.addEventListener('focus', () => showPreview(link));
+    link.addEventListener('blur', () => hidePreview(link));
+    link.addEventListener('click', () => hidePreview(link));
+  });
+
+  preview.addEventListener('pointerenter', () => window.clearTimeout(hideTimer));
+  preview.addEventListener('pointerleave', () => scheduleHide());
+
+  window.addEventListener('resize', positionPreview);
+  window.addEventListener('scroll', () => hidePreview(), { passive: true });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') hidePreview();
+  });
+})();
+
+(() => {
+  const nav = document.querySelector('.catalog-section-nav');
+  if (!nav) return;
+
+  const root = document.documentElement;
+  const header = document.querySelector('.site-header');
+  const desktop = window.matchMedia('(min-width: 761px)');
+  const anchorGap = 8;
+  let frame;
+  let initialCitationTargetAligned = false;
+
+  const update = () => {
+    frame = undefined;
+    if (desktop.matches && header) {
+      const headerHeight = header.getBoundingClientRect().height;
+      const anchorOffset = Math.ceil(
+        headerHeight + nav.getBoundingClientRect().height + anchorGap
+      );
+      nav.style.setProperty(
+        '--catalog-section-nav-sticky-top',
+        `${headerHeight}px`
+      );
+      root.style.setProperty(
+        '--catalog-anchor-scroll-offset',
+        `${anchorOffset}px`
+      );
+      if (!initialCitationTargetAligned) {
+        initialCitationTargetAligned = true;
+        window.requestAnimationFrame(() => {
+          const target = document.querySelector(
+            '.citation a:target, .article-references li:target'
+          );
+          const targetRect = target?.getBoundingClientRect();
+          if (targetRect && targetRect.bottom > 0 && targetRect.top < anchorOffset) {
+            target.scrollIntoView({ block: 'start' });
+          }
+        });
+      }
+    } else {
+      nav.style.removeProperty('--catalog-section-nav-sticky-top');
+      root.style.removeProperty('--catalog-anchor-scroll-offset');
+    }
+
+    const stickyTop = Number.parseFloat(window.getComputedStyle(nav).top) || 0;
+    const isStuck =
+      desktop.matches &&
+      window.scrollY > 0 &&
+      nav.getBoundingClientRect().top <= stickyTop + 0.5;
+
+    nav.classList.toggle('is-stuck', isStuck);
+  };
+
+  const scheduleUpdate = () => {
+    if (frame !== undefined) return;
+    frame = window.requestAnimationFrame(update);
+  };
+
+  window.addEventListener('scroll', scheduleUpdate, { passive: true });
+  window.addEventListener('resize', scheduleUpdate);
+  desktop.addEventListener('change', scheduleUpdate);
+  update();
 })();

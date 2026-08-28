@@ -196,14 +196,14 @@ html {
 .mu3-rail-heading {
   width: 100%;
   margin: 0;
-  background: #fff;
+  background: transparent;
 }
 
 .mu3-rail-heading span {
   display: block;
   padding: 1rem 1rem 0.85rem;
   color: #fff;
-  background: var(--mu3-blue);
+  background: transparent;
   border-radius: 0 0 1.25rem 0;
   font-size: 1.5rem;
   font-weight: 700;
@@ -435,7 +435,7 @@ html {
   }
 
   .mu3-page .global-nav
-    :is(.nav-catalog, .nav-comrade, .nav-wnpx, .nav-notes)
+    :is(.nav-info, .nav-catalog, .nav-comrade, .nav-wnpx, .nav-notes)
     .mu3-header-nav-label {
     --mu3-header-icon-shift: 38cqi;
     --mu3-header-text-shift: 26cqi;
@@ -479,7 +479,7 @@ html {
   }
 
   .mu3-header-nav-label__icon--ww3 {
-    --mu3-header-icon: url("/mu3/assets/icons/world.svg");
+    --mu3-header-icon: url("/mu3/assets/header-icons/building-columns.svg");
     width: 1.28rem;
     height: 1.28rem;
   }
@@ -489,7 +489,7 @@ html {
   }
 
   .mu3-header-nav-label__icon--notes {
-    --mu3-header-icon: url("/mu3/assets/header-icons/file-lines.svg");
+    --mu3-header-icon: url("/mu3/assets/header-icons/pen-nib.svg");
   }
 
   .mu3-header-nav-label__text {
@@ -508,7 +508,7 @@ html {
   }
 
   .mu3-page .global-nav
-    :is(.nav-catalog, .nav-comrade, .nav-wnpx, .nav-notes)
+    :is(.nav-info, .nav-catalog, .nav-comrade, .nav-wnpx, .nav-notes)
     .mu3-header-nav-label__text {
     font-size: clamp(0.5rem, 11cqi, 0.76rem);
   }

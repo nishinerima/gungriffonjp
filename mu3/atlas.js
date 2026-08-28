@@ -4,6 +4,7 @@
   const data = window.MU3_ATLAS_DATA;
   const svg = d3.select("#war-map");
   const frame = document.querySelector("[data-map-frame]");
+  const resizeHandle = document.querySelector("[data-map-resize-handle]");
   const status = document.querySelector("[data-map-status]");
   const slider = document.querySelector("[data-timeline]");
   const dateOutput = document.querySelector("[data-current-date]");
@@ -11,6 +12,9 @@
   const nextButton = document.querySelector('[data-step="next"]');
   const timelineModeButton = document.querySelector('[data-map-mode="timeline"]');
   const allModeButton = document.querySelector('[data-map-mode="all"]');
+  const zoomInButton = document.querySelector('[data-zoom="in"]');
+  const zoomOutButton = document.querySelector('[data-zoom="out"]');
+  const zoomResetButton = document.querySelector('[data-zoom="reset"]');
   const typeIconHost = document.querySelector("[data-event-type-icon]");
   const eventTitle = document.querySelector("[data-event-title]");
   const factionHost = document.querySelector("[data-event-factions]");
@@ -34,9 +38,9 @@
     "default-strong": "#89939d"
   };
   const typeIcons = {
-    battle: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M10 2c0 -.88 1.056 -1.331 1.692 -.722c1.958 1.876 3.096 5.995 1.75 9.12l-.08 .174l.012 .003c.625 .133 1.203 -.43 2.303 -2.173l.14 -.224a1 1 0 0 1 1.582 -.153c1.334 1.435 2.601 4.377 2.601 6.27c0 4.265 -3.591 7.705 -8 7.705s-8 -3.44 -8 -7.706c0 -2.252 1.022 -4.716 2.632 -6.301l.605 -.589c.241 -.236 .434 -.43 .618 -.624c1.43 -1.512 2.145 -2.924 2.145 -4.78"/></svg>',
+    battle: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7.514 3.836c.151 -.909 1.346 -1.147 1.834 -.366c2.294 3.67 4.275 4.048 5.758 1.083c.471 -.944 1.894 -.608 1.894 .447c0 2.448 1.552 4 4 4c.89 0 1.337 1.077 .707 1.707c-1.61 1.61 -1.61 2.975 0 4.581c.63 .63 .185 1.707 -.706 1.708c-2.448 .003 -3.001 .556 -3.001 3.004c0 .961 -1.223 1.369 -1.8 .6c-2.325 -3.1 -5.494 -2.856 -7.368 -.045c-.503 .754 -1.67 .504 -1.818 -.39c-.365 -2.188 -1.04 -2.656 -4.178 -3.179a1 1 0 0 1 -.543 -1.693c1.618 -1.618 1.618 -3.027 -.053 -4.981l-.009 -.013l-.013 -.014l-.044 -.062l-.01 -.011l-.006 -.013l-.038 -.066l-.017 -.028l-.001 -.004l-.027 -.066l-.019 -.041a1 1 0 0 1 -.051 -.233l-.002 -.045l-.003 -.068a1 1 0 0 1 .06 -.328l.009 -.023l.023 -.049l.011 -.029l.009 -.015l.007 -.016l.019 -.029l.02 -.035l.012 -.017l.013 -.022l.027 -.034l.011 -.016l.018 -.02l.02 -.025l.021 -.02l.015 -.017l.035 -.032l.02 -.019l.009 -.007l.018 -.015l.055 -.039l.018 -.015l.008 -.004l.01 -.007l.061 -.034l.028 -.016l.004 -.002l.063 -.026l.044 -.019a1 1 0 0 1 .115 -.032l.004 -.002l.267 -.063c2.39 -.613 3.934 -2.19 4.411 -4.523z"/></svg>',
     weapon: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 15a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3"/><path d="M6 12l1 -5h5l3 5"/><path d="M21 9l-7.8 0"/></svg>',
-    military: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12.555 2.168l6 4a1 1 0 0 1 .445 .832v12a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-12a1 1 0 0 1 .445 -.832l6 -4a1 1 0 0 1 1.11 0m-.108 12.938a1 1 0 0 0 -.894 0l-2 1a1 1 0 0 0 -.447 1.341l.058 .102a1 1 0 0 0 1.283 .345l1.553 -.776l1.553 .776a1 1 0 0 0 .894 -1.788zm0 -4a1 1 0 0 0 -.894 0l-2 1a1 1 0 0 0 -.447 1.341l.058 .102a1 1 0 0 0 1.283 .345l1.553 -.776l1.553 .776a1 1 0 0 0 .894 -1.788zm0 -4a1 1 0 0 0 -.894 0l-2 1a1 1 0 0 0 -.447 1.341l.058 .102a1 1 0 0 0 1.283 .345l1.553 -.776l1.553 .776a1 1 0 0 0 .894 -1.788z"/></svg>',
+    military: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 7v12a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-12l6 -4l6 4"/><path d="M10 13l2 -1l2 1"/><path d="M10 17l2 -1l2 1"/><path d="M10 9l2 -1l2 1"/></svg>',
     other: '<svg class="chronol-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/></svg>'
   };
   const typeLabels = {
@@ -65,6 +69,82 @@
   let borders;
   let stripePatterns;
   let allEventsMode = false;
+  let resizePointerId = null;
+  let resizeStartY = 0;
+  let resizeStartHeight = 0;
+
+  function mapHeightBounds() {
+    const styles = getComputedStyle(frame);
+    return {
+      min: parseFloat(styles.minHeight) || 0,
+      max: parseFloat(styles.maxHeight) || Number.POSITIVE_INFINITY
+    };
+  }
+
+  function updateResizeHandleValue() {
+    const bounds = mapHeightBounds();
+    const height = Math.round(frame.getBoundingClientRect().height);
+    resizeHandle.setAttribute("aria-valuemin", String(Math.round(bounds.min)));
+    resizeHandle.setAttribute("aria-valuemax", String(Math.round(bounds.max)));
+    resizeHandle.setAttribute("aria-valuenow", String(height));
+  }
+
+  function setMapHeight(height) {
+    const bounds = mapHeightBounds();
+    const clamped = Math.max(bounds.min, Math.min(bounds.max, height));
+    frame.style.setProperty("--atlas-map-height", Math.round(clamped) + "px");
+    updateResizeHandleValue();
+  }
+
+  function moveMapResize(event) {
+    if (event.pointerId !== resizePointerId) return;
+    event.preventDefault();
+    setMapHeight(resizeStartHeight + event.clientY - resizeStartY);
+  }
+
+  function finishMapResize(event) {
+    if (event.pointerId !== resizePointerId) return;
+    resizePointerId = null;
+    resizeHandle.classList.remove("is-resizing");
+    document.body.classList.remove("is-resizing-map");
+    window.removeEventListener("pointermove", moveMapResize);
+    window.removeEventListener("pointerup", finishMapResize);
+    window.removeEventListener("pointercancel", finishMapResize);
+  }
+
+  resizeHandle.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || resizePointerId !== null) return;
+    event.preventDefault();
+    resizePointerId = event.pointerId;
+    resizeStartY = event.clientY;
+    resizeStartHeight = frame.getBoundingClientRect().height;
+    resizeHandle.classList.add("is-resizing");
+    document.body.classList.add("is-resizing-map");
+    window.addEventListener("pointermove", moveMapResize);
+    window.addEventListener("pointerup", finishMapResize);
+    window.addEventListener("pointercancel", finishMapResize);
+  });
+
+  resizeHandle.addEventListener("keydown", event => {
+    const bounds = mapHeightBounds();
+    const currentHeight = frame.getBoundingClientRect().height;
+    const movement = event.key === "ArrowUp" ? -16
+      : event.key === "ArrowDown" ? 16
+        : event.key === "PageUp" ? -64
+          : event.key === "PageDown" ? 64
+            : null;
+    if (movement === null && event.key !== "Home" && event.key !== "End") return;
+    event.preventDefault();
+    if (event.key === "Home") {
+      setMapHeight(bounds.min);
+    } else if (event.key === "End") {
+      setMapHeight(bounds.max);
+    } else {
+      setMapHeight(currentHeight + movement);
+    }
+  });
+
+  updateResizeHandleValue();
 
   slider.min = "0";
   slider.max = String(events.length - 1);
@@ -231,14 +311,19 @@
     eventLayer.selectAll(".event-route")
       .classed("is-visible", event => allEventsMode || event.index === selectedIndex)
       .classed("is-active", event => event.index === selectedIndex);
-    eventLayer.selectAll(".event-point")
+    const points = eventLayer.selectAll(".event-point")
       .classed("is-visible", event => allEventsMode || event.index === selectedIndex)
       .classed("is-active", event => event.index === selectedIndex)
       .attr("tabindex", event => allEventsMode || event.index === selectedIndex ? 0 : -1);
-    eventLayer.selectAll(".event-pulse")
+    const pulses = eventLayer.selectAll(".event-pulse")
       .classed("is-active", event => event.index === selectedIndex);
-    eventLayer.selectAll(".event-place-label")
+    const labels = eventLayer.selectAll(".event-place-label")
       .classed("is-visible", event => event.index === selectedIndex);
+    if (allEventsMode) {
+      pulses.filter(event => event.index === selectedIndex).raise();
+      points.filter(event => event.index === selectedIndex).raise();
+      labels.filter(event => event.index === selectedIndex).raise();
+    }
     updateTerritories(selectedIndex);
     clampVisibleLabels(d3.zoomTransform(svg.node()));
   }
@@ -367,6 +452,14 @@
     stripePatterns.select(".pattern-band").attr("width", size / 2).attr("height", size);
   }
 
+  function updateZoomButtons(scale) {
+    if (!zoom) return;
+    const [minimumScale, maximumScale] = zoom.scaleExtent();
+    const epsilon = 0.000001;
+    zoomOutButton.disabled = scale <= minimumScale + epsilon;
+    zoomInButton.disabled = scale >= maximumScale - epsilon;
+  }
+
   function drawRegions(defs) {
     const regions = Object.entries(data.regions).map(([id, region]) => ({ id, ...region }));
     const clippedRegions = regions.filter(region => region.clipCountry);
@@ -468,16 +561,18 @@
           .style("stroke-width", (3 / zoomEvent.transform.k) + "px");
         updatePatternScale(zoomEvent.transform.k);
         clampVisibleLabels(zoomEvent.transform);
+        updateZoomButtons(zoomEvent.transform.k);
       });
       svg.call(zoom);
+      updateZoomButtons(d3.zoomTransform(svg.node()).k);
 
-      document.querySelector('[data-zoom="in"]').addEventListener("click", () => {
+      zoomInButton.addEventListener("click", () => {
         svg.transition().duration(250).call(zoom.scaleBy, 1.5);
       });
-      document.querySelector('[data-zoom="out"]').addEventListener("click", () => {
+      zoomOutButton.addEventListener("click", () => {
         svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.5);
       });
-      document.querySelector('[data-zoom="reset"]').addEventListener("click", () => {
+      zoomResetButton.addEventListener("click", () => {
         showWholeWorld(300);
       });
 
@@ -485,7 +580,6 @@
       status.hidden = true;
       const hashIndex = events.findIndex(event => "#" + event.id === location.hash);
       setEvent(Math.max(0, hashIndex), true, hashIndex >= 0, true);
-      new ResizeObserver(resize).observe(frame);
     } catch (error) {
       status.textContent = "地図資料を読み込めませんでした。";
       status.classList.add("is-error");
@@ -563,5 +657,9 @@
   });
 
   updatePanel(events[0]);
+  new ResizeObserver(() => {
+    updateResizeHandleValue();
+    resize();
+  }).observe(frame);
   init();
 })();

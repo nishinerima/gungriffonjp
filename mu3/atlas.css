@@ -6,6 +6,10 @@ html.mu3-atlas-document {
   width: min(100%, 42rem);
 }
 
+.mu3-page--atlas .mu3-document .legacy-content {
+  padding-top: clamp(0.805rem, 2.8vw, 2.1rem);
+}
+
 .mu3-atlas {
   --atlas-alert: #d6a324;
   --atlas-land: #d9e2f2;
@@ -27,10 +31,21 @@ html.mu3-atlas-document {
 }
 
 .map-frame {
+  --atlas-map-min-height: 20rem;
+  --atlas-map-preferred-height: 34rem;
+  --atlas-map-max-height: 48rem;
   position: relative;
-  height: 34rem;
+  height: var(
+    --atlas-map-height,
+    clamp(
+      var(--atlas-map-min-height),
+      calc(100dvh - 30rem),
+      var(--atlas-map-preferred-height)
+    )
+  );
   min-width: 0;
-  min-height: 34rem;
+  min-height: var(--atlas-map-min-height);
+  max-height: var(--atlas-map-max-height);
   overflow: hidden;
   background: var(--atlas-sea);
 }
@@ -38,14 +53,54 @@ html.mu3-atlas-document {
 #war-map {
   display: block;
   width: 100%;
-  height: 34rem;
-  min-height: 34rem;
+  height: 100%;
+  min-height: 0;
   cursor: grab;
   touch-action: none;
 }
 
 #war-map:active {
   cursor: grabbing;
+}
+
+.map-resize-handle {
+  position: relative;
+  z-index: 3;
+  height: 1rem;
+  margin-block: -0.5rem;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.map-resize-handle::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4rem;
+  height: 0.2rem;
+  background: rgb(43 18 176 / 55%);
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 999px;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.map-resize-handle:hover::before,
+.map-resize-handle:focus-visible::before,
+.map-resize-handle.is-resizing::before {
+  background: var(--mu3-blue);
+}
+
+.map-resize-handle:focus-visible {
+  outline: 2px solid var(--mu3-blue);
+  outline-offset: -3px;
+}
+
+body.is-resizing-map,
+body.is-resizing-map * {
+  cursor: ns-resize !important;
+  user-select: none !important;
 }
 
 .sphere {
@@ -202,7 +257,7 @@ html.mu3-atlas-document {
   color: #44516c;
   background: rgb(255 255 255 / 88%);
   border: 1px solid rgb(173 186 209 / 72%);
-  border-radius: 0 0.65rem 0.65rem 0;
+  border-radius: 0;
   box-shadow: 0 0.25rem 0.8rem rgb(44 58 90 / 8%);
   font-size: 0.62rem;
   font-weight: 700;
@@ -261,7 +316,7 @@ html.mu3-atlas-document {
   min-height: 2.45rem;
   padding: 0.4rem 0.7rem;
   color: var(--mu3-blue);
-  background: #fff;
+  background: rgb(255 255 255 / 88%);
   border: 1px solid var(--mu3-line);
   font: 700 0.76rem/1.25 inherit;
   cursor: pointer;
@@ -283,14 +338,21 @@ html.mu3-atlas-document {
   border-radius: 0 0 0.55rem 0;
 }
 
-.map-tools button:hover,
-.map-tools button:focus-visible,
+.map-tools button:hover:not(:disabled),
+.map-tools button:focus-visible:not(:disabled),
 .map-mode-switch button[aria-pressed="true"],
 .event-step:hover:not(:disabled),
 .event-step:focus-visible:not(:disabled) {
   color: #fff;
   background: var(--mu3-blue);
   border-color: var(--mu3-blue);
+}
+
+.map-tools button:disabled {
+  color: #8b94a8;
+  background: rgb(226 231 240 / 72%);
+  border-color: rgb(173 186 209 / 58%);
+  cursor: default;
 }
 
 .event-panel {
@@ -526,10 +588,9 @@ html.mu3-atlas-document {
 }
 
 @container (max-width: 67rem) {
-  .map-frame,
-  #war-map {
-    height: 29rem;
-    min-height: 29rem;
+  .map-frame {
+    --atlas-map-preferred-height: 29rem;
+    --atlas-map-max-height: 42rem;
   }
 
   .event-panel {
@@ -538,10 +599,10 @@ html.mu3-atlas-document {
 }
 
 @container (max-width: 39rem) {
-  .map-frame,
-  #war-map {
-    height: 24rem;
-    min-height: 24rem;
+  .map-frame {
+    --atlas-map-min-height: 18rem;
+    --atlas-map-preferred-height: 24rem;
+    --atlas-map-max-height: 34rem;
   }
 
   .map-tools {
@@ -591,5 +652,11 @@ html.mu3-atlas-document {
   .country,
   .region-overlay {
     transition: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .mu3-page--atlas .mu3-document .legacy-content {
+    padding-top: 0.7rem;
   }
 }
