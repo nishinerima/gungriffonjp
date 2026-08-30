@@ -1413,7 +1413,10 @@
       item.classList.add('page-nav__item--collapsible');
       item.insertBefore(toggle, parentLink);
       catalogDetailSubtrees.push(item);
-      setCatalogDetailSubtreeOpen(item, false);
+      setCatalogDetailSubtreeOpen(
+        item,
+        window.matchMedia('(min-width: 761px)').matches,
+      );
 
       const toggleSubtree = () => {
         const open = toggle.getAttribute('aria-expanded') !== 'true';
