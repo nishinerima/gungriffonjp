@@ -1,1 +1,7 @@
 ErrorDocument 404 /404.html
+
+# 正規URL転送
+RewriteEngine On
+RewriteCond %{HTTPS} off [OR]
+RewriteCond %{HTTP_HOST} !^gungriffon\.jp$ [NC]
+RewriteRule ^ https://gungriffon.jp%{REQUEST_URI} [R=301,L]

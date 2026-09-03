@@ -55,20 +55,48 @@
     afta: "AFTA",
     other: "その他"
   };
-  const events = data.events.map((event, index) => ({ ...event, index }));
+  const sequenceDateKey = event =>
+    event.date.iso && /^\d{4}\.\d{1,2}\.\d{1,2}$/u.test(event.date.display)
+      ? event.date.iso
+      : "";
+  const dateTotals = new Map();
+  data.events.forEach(event => {
+    const dateKey = sequenceDateKey(event);
+    if (!dateKey) return;
+    dateTotals.set(dateKey, (dateTotals.get(dateKey) || 0) + 1);
+  });
+  const datePositions = new Map();
+  const events = data.events.map((event, index) => {
+    let dateSequence = null;
+    const dateKey = sequenceDateKey(event);
+    if (dateKey && dateTotals.get(dateKey) > 1) {
+      dateSequence = (datePositions.get(dateKey) || 0) + 1;
+      datePositions.set(dateKey, dateSequence);
+    }
+    return { ...event, index, dateSequence };
+  });
+  const seamlessCountryIds = new Set([
+    ...Object.values(data.regions)
+      .map(region => region.territoryCountry)
+      .filter(Boolean),
+    ...(data.hiddenCountryBorders || []).flat()
+  ]);
   let currentIndex = 0;
   let currentCameraName = "";
   let projection;
   let path;
   let mapLayer;
   let regionLayer;
+  let countryTransitionLayer;
+  let regionTransitionLayer;
   let eventLayer;
   let zoom;
   let countries = [];
   let countriesById = new Map();
   let borders;
-  let stripePatterns;
+  let routeArrow;
   let allEventsMode = false;
+  let territoryTransitionsReady = false;
   let resizePointerId = null;
   let resizeStartY = 0;
   let resizeStartHeight = 0;
@@ -152,11 +180,54 @@
   slider.step = "1";
 
   const normalizeCountryId = value => String(value).padStart(3, "0");
-  const patternId = fill => "atlas-stripe-" + fill.join("-");
-  const paintFor = fill => {
+  function countryGeometry(world, countryId) {
+    return world.objects.countries.geometries.find(
+      geometry => normalizeCountryId(geometry.id) === countryId
+    );
+  }
+
+  function reassignTerritoryRegions(world) {
+    Object.values(data.regions).forEach(region => {
+      if (!region.clipCountry || !region.territoryCountry) return;
+
+      const source = countryGeometry(world, region.clipCountry);
+      const target = countryGeometry(world, region.territoryCountry);
+      if (!source || !target) {
+        throw new Error("地域の再分類先となる国データが見つかりません。");
+      }
+
+      const sourcePolygons = source.type === "Polygon" ? [source.arcs] : source.arcs;
+      const regionCenter = d3.geoCentroid(region.geometry);
+      const polygonIndex = sourcePolygons.findIndex(polygonArcs => {
+        const polygon = topojson.feature(world, { type: "Polygon", arcs: polygonArcs });
+        return d3.geoContains(polygon, regionCenter);
+      });
+      if (polygonIndex < 0) {
+        throw new Error("再分類する地域のポリゴンが元の国データに見つかりません。");
+      }
+
+      const [polygonArcs] = sourcePolygons.splice(polygonIndex, 1);
+      if (!sourcePolygons.length) {
+        throw new Error("元の国から唯一のポリゴンを移動することはできません。");
+      }
+      source.type = "MultiPolygon";
+      source.arcs = sourcePolygons;
+
+      if (target.type === "Polygon") {
+        target.type = "MultiPolygon";
+        target.arcs = [target.arcs, polygonArcs];
+      } else {
+        target.arcs.push(polygonArcs);
+      }
+    });
+  }
+
+  const stripeId = (fill, variant) =>
+    "atlas-stripe-" + variant + "-" + fill.join("-");
+  const paintFor = (fill, stripeVariant) => {
     if (!fill || !fill.length) return colors.default;
     if (fill.length === 1) return colors[fill[0]] || colors.default;
-    return "url(#" + patternId(fill) + ")";
+    return "url(#" + stripeId(fill, stripeVariant) + ")";
   };
 
   function eventFeature(event) {
@@ -213,8 +284,9 @@
     nextButton.disabled = event.index === events.length - 1;
   }
 
-  function updateDateOutput(displayDate) {
+  function updateDateOutput(event) {
     dateOutput.replaceChildren();
+    const displayDate = event.date.display;
     const parts = displayDate.match(/\d+|[.～〜]+|[^\d.～〜]+/gu) || [displayDate];
     parts.forEach(part => {
       if (/^[^\d.～〜]+$/u.test(part)) {
@@ -226,6 +298,12 @@
         dateOutput.append(part);
       }
     });
+    if (event.dateSequence !== null) {
+      const sequence = document.createElement("small");
+      sequence.className = "current-time__sequence";
+      sequence.textContent = "（" + event.dateSequence + "）";
+      dateOutput.appendChild(sequence);
+    }
   }
 
   function expandTargets(targets) {
@@ -250,16 +328,108 @@
     return state;
   }
 
+  function territoryTargetForRegion(region) {
+    return region.territoryCountry
+      ? "country:" + region.territoryCountry
+      : "region:" + region.id;
+  }
+
+  function fillsMatch(left, right) {
+    return Boolean(left && right) &&
+      left.length === right.length &&
+      left.every((fill, index) => fill === right[index]);
+  }
+
+  function regionHasDistinctTerritory(region, state) {
+    if (!region.clipCountry) return false;
+    const regionFill = state.get(territoryTargetForRegion(region));
+    const parentFill = state.get("country:" + region.clipCountry);
+    return Boolean(regionFill) && !fillsMatch(regionFill, parentFill);
+  }
+
+  function clearTerritoryTransitions() {
+    [countryTransitionLayer, regionTransitionLayer].forEach(layer => {
+      if (layer) layer.selectAll("*").interrupt("territory-paint").remove();
+    });
+    if (mapLayer) {
+      mapLayer.selectAll("path.country:not(.territory-transition-old)")
+        .interrupt("territory-paint")
+        .style("opacity", 1);
+    }
+    if (regionLayer) {
+      regionLayer.selectAll(".region-overlay")
+        .interrupt("territory-paint")
+        .style("opacity", 1);
+    }
+  }
+
+  function prepareTerritoryTransition(selection, paintForDatum, transitionLayer, animate) {
+    const changedNodes = [];
+    const outgoingNodes = [];
+    selection.each(function (datum) {
+      const paint = paintForDatum(datum);
+      if (this.getAttribute("data-paint-signature") === paint.signature) return;
+      changedNodes.push(this);
+      if (!animate || !this.hasAttribute("data-paint-signature")) return;
+      const outgoing = this.cloneNode(false);
+      outgoing.classList.add("territory-transition-old");
+      outgoing.removeAttribute("data-paint-signature");
+      outgoing.style.fill = this.style.fill || getComputedStyle(this).fill;
+      outgoing.style.stroke = this.style.stroke || getComputedStyle(this).stroke;
+      outgoing.style.opacity = getComputedStyle(this).opacity;
+      transitionLayer.node().appendChild(outgoing);
+      outgoingNodes.push(outgoing);
+    });
+    return { changedNodes, outgoingNodes };
+  }
+
+  function runTerritoryTransition(prepared, animate) {
+    const incoming = d3.selectAll(prepared.changedNodes)
+      .interrupt("territory-paint")
+      .style("opacity", animate ? 0 : 1);
+    if (!animate || !prepared.changedNodes.length) return;
+    const transition = d3.transition("territory-paint")
+      .duration(180)
+      .ease(d3.easeCubicInOut);
+    incoming.transition(transition).style("opacity", 1);
+    d3.selectAll(prepared.outgoingNodes)
+      .transition(transition)
+      .style("opacity", 0)
+      .remove();
+  }
+
   function updateTerritories(selectedIndex) {
     if (!mapLayer || !regionLayer) return;
+    clearTerritoryTransitions();
     const state = territoryStateAt(selectedIndex);
+    const patternVariant = allEventsMode ? "world" : events[selectedIndex].camera;
     const emphasis = new Map();
     events[selectedIndex].emphasis.forEach(change => {
       expandTargets(change.targets).forEach(target => {
         emphasis.set(target, change.fill);
       });
     });
-    mapLayer.selectAll(".country")
+    const animate = territoryTransitionsReady &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const countryPaint = country => {
+      const countryId = normalizeCountryId(country.id);
+      const target = "country:" + countryId;
+      const fill = paintFor(emphasis.get(target) || state.get(target), patternVariant);
+      const stroke = seamlessCountryIds.has(countryId) ? fill : null;
+      return {
+        fill,
+        stroke,
+        signature: [fill, stroke || ""].join("|")
+      };
+    };
+    const countries = mapLayer.selectAll("path.country:not(.territory-transition-old)");
+    const preparedCountries = prepareTerritoryTransition(
+      countries,
+      countryPaint,
+      countryTransitionLayer,
+      animate
+    );
+    countries
       .attr("data-territory", country => {
         const fill = state.get("country:" + normalizeCountryId(country.id));
         return fill ? fill.join("-") : null;
@@ -268,42 +438,48 @@
         const fill = emphasis.get("country:" + normalizeCountryId(country.id));
         return fill ? fill.join("-") : null;
       })
-      .style("fill", country => {
-        const target = "country:" + normalizeCountryId(country.id);
-        return paintFor(emphasis.get(target) || state.get(target));
-      });
-    regionLayer.selectAll(".region-overlay")
+      .attr("data-paint-signature", country => countryPaint(country).signature)
+      .style("fill", country => countryPaint(country).fill)
+      .style("stroke", country => countryPaint(country).stroke);
+    const regionPaint = region => {
+      const distinct = regionHasDistinctTerritory(region, state);
+      const target = territoryTargetForRegion(region);
+      const activeFill = emphasis.get(target) || state.get(target);
+      const fill = region.clipCountry && !distinct
+        ? "transparent"
+        : activeFill ? paintFor(activeFill, patternVariant) : "transparent";
+      const stroke = region.clipCountry && !distinct ? "transparent" : null;
+      const boundary = distinct ? "true" : null;
+      return {
+        fill,
+        stroke,
+        boundary,
+        signature: [fill, stroke || "", boundary || ""].join("|")
+      };
+    };
+    const regions = regionLayer.selectAll(".region-overlay");
+    const preparedRegions = prepareTerritoryTransition(
+      regions,
+      regionPaint,
+      regionTransitionLayer,
+      animate
+    );
+    regions
       .attr("data-territory", region => {
-        const fill = state.get("region:" + region.id);
+        const fill = state.get(territoryTargetForRegion(region));
         return fill ? fill.join("-") : null;
       })
       .attr("data-emphasis", region => {
-        const fill = emphasis.get("region:" + region.id);
+        const fill = emphasis.get(territoryTargetForRegion(region));
         return fill ? fill.join("-") : null;
       })
-      .style("fill", region => {
-        const target = "region:" + region.id;
-        const fill = emphasis.get(target) || state.get(target);
-        return fill ? paintFor(fill) : "transparent";
-      });
-  }
-
-  function clampVisibleLabels(transform) {
-    if (!eventLayer || !transform) return;
-    const frameBounds = frame.getBoundingClientRect();
-    const inset = 6;
-    eventLayer.selectAll(".event-place-label.is-visible")
-      .attr("dx", 0)
-      .each(function () {
-        const labelBounds = this.getBoundingClientRect();
-        let shift = 0;
-        if (labelBounds.left < frameBounds.left + inset) {
-          shift = frameBounds.left + inset - labelBounds.left;
-        } else if (labelBounds.right > frameBounds.right - inset) {
-          shift = frameBounds.right - inset - labelBounds.right;
-        }
-        d3.select(this).attr("dx", shift / transform.k);
-      });
+      .attr("data-boundary-visible", region => regionPaint(region).boundary)
+      .attr("data-paint-signature", region => regionPaint(region).signature)
+      .style("fill", region => regionPaint(region).fill)
+      .style("stroke", region => regionPaint(region).stroke);
+    runTerritoryTransition(preparedCountries, animate);
+    runTerritoryTransition(preparedRegions, animate);
+    territoryTransitionsReady = true;
   }
 
   function updateMap(selectedIndex) {
@@ -314,7 +490,12 @@
     const points = eventLayer.selectAll(".event-point")
       .classed("is-visible", event => allEventsMode || event.index === selectedIndex)
       .classed("is-active", event => event.index === selectedIndex)
-      .attr("tabindex", event => allEventsMode || event.index === selectedIndex ? 0 : -1);
+      .classed("is-interactive", allEventsMode)
+      .attr("tabindex", allEventsMode ? 0 : -1)
+      .attr("role", allEventsMode ? "button" : null)
+      .attr("aria-label", event => allEventsMode
+        ? event.date.display + " " + event.title
+        : null);
     const pulses = eventLayer.selectAll(".event-pulse")
       .classed("is-active", event => event.index === selectedIndex);
     const labels = eventLayer.selectAll(".event-place-label")
@@ -325,7 +506,6 @@
       labels.filter(event => event.index === selectedIndex).raise();
     }
     updateTerritories(selectedIndex);
-    clampVisibleLabels(d3.zoomTransform(svg.node()));
   }
 
   function cameraTransform(event) {
@@ -354,7 +534,7 @@
     currentIndex = Math.max(0, Math.min(events.length - 1, Number(index)));
     const event = events[currentIndex];
     slider.value = String(currentIndex);
-    updateDateOutput(event.date.display);
+    updateDateOutput(event);
     frame.dataset.camera = event.camera;
     updatePanel(event);
     updateMap(currentIndex);
@@ -393,11 +573,11 @@
       .attr("cy", event => projection(event.point)[1])
       .attr("r", 6)
       .attr("tabindex", -1)
-      .attr("role", "button")
-      .attr("aria-label", event => event.date.display + " " + event.title)
-      .on("click", (_, event) => setEvent(event.index))
+      .on("click", (_, event) => {
+        if (allEventsMode) setEvent(event.index);
+      })
       .on("keydown", (keyboardEvent, event) => {
-        if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") {
+        if (allEventsMode && (keyboardEvent.key === "Enter" || keyboardEvent.key === " ")) {
           keyboardEvent.preventDefault();
           setEvent(event.index);
         }
@@ -410,12 +590,14 @@
       .attr("class", "event-place-label")
       .attr("x", event => projection(event.point)[0])
       .attr("y", event => projection(event.point)[1])
-      .attr("dy", event => event.camera === "world" ? "1.25em" : "-0.85em")
+      .attr("dy", event => labelScreenOffset(event))
       .attr("text-anchor", "middle")
       .text(event => event.placeLabel);
   }
 
-  function createPatterns(defs) {
+  const labelScreenOffset = event => event.camera === "world" ? 15 : -10;
+
+  function createStripeGradients(defs) {
     const pairs = new Map();
     events.forEach(event => {
       [event.territory, event.emphasis].forEach(changes => {
@@ -424,32 +606,55 @@
         });
       });
     });
-    stripePatterns = defs.selectAll("pattern.atlas-stripe")
-      .data(Array.from(pairs.values()), fill => fill.join("-"))
-      .join("pattern")
+    const stripeVariants = Array.from(pairs.values()).flatMap(fill =>
+      Object.keys(data.cameras).map(cameraName => ({
+        cameraName,
+        fill,
+        scale: data.cameras[cameraName].zoom
+      }))
+    );
+    const stripeGradients = defs.selectAll("linearGradient.atlas-stripe")
+      .data(stripeVariants, stripe => stripeId(stripe.fill, stripe.cameraName))
+      .join("linearGradient")
       .attr("class", "atlas-stripe")
-      .attr("id", fill => patternId(fill))
-      .attr("patternUnits", "userSpaceOnUse")
-      .attr("width", 8)
-      .attr("height", 8);
-    stripePatterns.append("rect")
-      .attr("class", "pattern-base")
-      .attr("width", 8)
-      .attr("height", 8)
-      .attr("fill", fill => colors[fill[0]] || colors.default);
-    stripePatterns.append("rect")
-      .attr("class", "pattern-band")
-      .attr("width", 4)
-      .attr("height", 8)
-      .attr("fill", fill => colors[fill[1]] || colors.default);
+      .attr("id", stripe => stripeId(stripe.fill, stripe.cameraName))
+      .attr("gradientUnits", "userSpaceOnUse")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", stripe => 8 / stripe.scale)
+      .attr("y2", 0)
+      .attr("spreadMethod", "repeat");
+    stripeGradients.each(function (stripe) {
+      const first = colors[stripe.fill[0]] || colors.default;
+      const second = colors[stripe.fill[1]] || colors.default;
+      d3.select(this).selectAll("stop")
+        .data([
+          { offset: 0, color: first },
+          { offset: 0.5, color: first },
+          { offset: 0.5, color: second },
+          { offset: 1, color: second }
+        ])
+        .join("stop")
+        .attr("offset", stop => stop.offset)
+        .attr("stop-color", stop => stop.color);
+    });
   }
 
-  function updatePatternScale(scale) {
-    if (!stripePatterns) return;
-    const size = 8 / scale;
-    stripePatterns.attr("width", size).attr("height", size);
-    stripePatterns.select(".pattern-base").attr("width", size).attr("height", size);
-    stripePatterns.select(".pattern-band").attr("width", size / 2).attr("height", size);
+  function updateEventSymbolScale(scale) {
+    const safeScale = Math.max(scale, 0.001);
+    eventLayer.selectAll(".event-point").attr("r", 6 / safeScale);
+    eventLayer.selectAll(".event-pulse").attr("r", 12 / safeScale);
+    eventLayer.selectAll(".event-place-label")
+      .attr("dy", event => labelScreenOffset(event) / safeScale)
+      .style("font-size", (12 / safeScale) + "px")
+      .style("stroke-width", (3 / safeScale) + "px");
+  }
+
+  function updateRouteArrowSize(scale) {
+    if (!routeArrow) return;
+    const markerScreenSize = frame.clientWidth <= 624 ? 7 : 12;
+    const markerUserSize = markerScreenSize / Math.max(scale, 0.001);
+    routeArrow.attr("markerWidth", markerUserSize).attr("markerHeight", markerUserSize);
   }
 
   function updateZoomButtons(scale) {
@@ -461,7 +666,9 @@
   }
 
   function drawRegions(defs) {
-    const regions = Object.entries(data.regions).map(([id, region]) => ({ id, ...region }));
+    const regions = Object.entries(data.regions)
+      .map(([id, region]) => ({ id, ...region }))
+      .filter(region => !(region.clipCountry && region.territoryCountry));
     const clippedRegions = regions.filter(region => region.clipCountry);
     const clipPaths = defs.selectAll("clipPath.atlas-region-clip")
       .data(clippedRegions, region => region.id)
@@ -489,13 +696,15 @@
 
   function resize() {
     if (!projection || !mapLayer) return;
+    clearTerritoryTransitions();
     const width = frame.clientWidth;
     const height = frame.clientHeight;
+    updateRouteArrowSize(d3.zoomTransform(svg.node()).k);
     svg.attr("viewBox", "0 0 " + width + " " + height);
     projection.fitExtent([[24, 24], [width - 24, height - 24]], { type: "Sphere" });
     mapLayer.select(".sphere").attr("d", path({ type: "Sphere" }));
     mapLayer.select(".graticule").attr("d", path(d3.geoGraticule10()));
-    mapLayer.selectAll(".country").attr("d", path);
+    mapLayer.selectAll("path.country:not(.territory-transition-old)").attr("d", path);
     mapLayer.select(".country-boundary").attr("d", path);
     drawRegions(svg.select("defs"));
     drawEvents();
@@ -506,6 +715,7 @@
   async function init() {
     try {
       const world = await d3.json("/mu3/assets/vendor/world-atlas/countries-110m.json");
+      reassignTerritoryRegions(world);
       countries = topojson.feature(world, world.objects.countries).features;
       countriesById = new Map(
         countries.map(country => [normalizeCountryId(country.id), country])
@@ -526,18 +736,19 @@
       path = d3.geoPath(projection);
 
       const defs = svg.append("defs");
-      defs.append("marker")
+      routeArrow = defs.append("marker")
         .attr("id", "route-arrow")
         .attr("viewBox", "0 -5 10 10")
         .attr("refX", 8)
         .attr("refY", 0)
+        .attr("markerUnits", "userSpaceOnUse")
         .attr("markerWidth", 5)
         .attr("markerHeight", 5)
-        .attr("orient", "auto")
-        .append("path")
+        .attr("orient", "auto");
+      routeArrow.append("path")
         .attr("d", "M0,-5L10,0L0,5")
         .attr("fill", "context-stroke");
-      createPatterns(defs);
+      createStripeGradients(defs);
 
       mapLayer = svg.append("g").attr("class", "map-layer");
       mapLayer.append("path").attr("class", "sphere");
@@ -547,20 +758,19 @@
         .join("path")
         .attr("class", "country")
         .attr("data-country-id", country => normalizeCountryId(country.id));
+      countryTransitionLayer = mapLayer.append("g")
+        .attr("class", "territory-transition-layer territory-transition-layer--country");
       regionLayer = mapLayer.append("g").attr("class", "region-layer");
+      regionTransitionLayer = mapLayer.append("g")
+        .attr("class", "territory-transition-layer territory-transition-layer--region");
       mapLayer.append("path").datum(borders).attr("class", "country-boundary");
       eventLayer = svg.append("g").attr("class", "event-layer");
 
       zoom = d3.zoom().scaleExtent([0.65, 8]).on("zoom", zoomEvent => {
         mapLayer.attr("transform", zoomEvent.transform);
         eventLayer.attr("transform", zoomEvent.transform);
-        eventLayer.selectAll(".event-point").attr("r", 6 / zoomEvent.transform.k);
-        eventLayer.selectAll(".event-pulse").attr("r", 12 / zoomEvent.transform.k);
-        eventLayer.selectAll(".event-place-label")
-          .style("font-size", (12 / zoomEvent.transform.k) + "px")
-          .style("stroke-width", (3 / zoomEvent.transform.k) + "px");
-        updatePatternScale(zoomEvent.transform.k);
-        clampVisibleLabels(zoomEvent.transform);
+        updateEventSymbolScale(zoomEvent.transform.k);
+        updateRouteArrowSize(zoomEvent.transform.k);
         updateZoomButtons(zoomEvent.transform.k);
       });
       svg.call(zoom);

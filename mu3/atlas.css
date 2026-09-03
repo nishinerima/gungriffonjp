@@ -76,14 +76,14 @@ html.mu3-atlas-document {
 .map-resize-handle::before {
   position: absolute;
   top: 50%;
-  left: 50%;
-  width: 4rem;
+  left: 0;
+  width: 100%;
   height: 0.2rem;
   background: rgb(43 18 176 / 55%);
   border: 1px solid rgb(255 255 255 / 80%);
   border-radius: 999px;
   content: "";
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
 }
 
 .map-resize-handle:hover::before,
@@ -119,7 +119,6 @@ body.is-resizing-map * {
   stroke: #fff;
   stroke-width: 0.65;
   vector-effect: non-scaling-stroke;
-  transition: fill 180ms ease;
 }
 
 .region-overlay {
@@ -128,7 +127,10 @@ body.is-resizing-map * {
   stroke-width: 0.65;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-  transition: fill 180ms ease;
+}
+
+.territory-transition-layer {
+  pointer-events: none;
 }
 
 .region-overlay[data-region-id="siberia"],
@@ -173,12 +175,15 @@ body.is-resizing-map * {
   opacity: 0;
   pointer-events: none;
   vector-effect: non-scaling-stroke;
-  cursor: pointer;
 }
 
 .event-point.is-visible {
   opacity: 0.62;
+}
+
+.event-point.is-visible.is-interactive {
   pointer-events: auto;
+  cursor: pointer;
 }
 
 .event-point.is-active {
@@ -476,6 +481,11 @@ body.is-resizing-map * {
   vertical-align: 0.05em;
 }
 
+.current-time__sequence {
+  font-size: 0.62em;
+  vertical-align: 0.14em;
+}
+
 .timeline-wrap {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -600,9 +610,29 @@ body.is-resizing-map * {
 
 @container (max-width: 39rem) {
   .map-frame {
-    --atlas-map-min-height: 18rem;
+    --atlas-map-min-height: 11rem;
     --atlas-map-preferred-height: 24rem;
     --atlas-map-max-height: 34rem;
+  }
+
+  .map-resize-handle {
+    height: 1.65rem;
+    margin-block: 0;
+    background: #edf1fa;
+    border-top: 1px solid rgb(255 255 255 / 85%);
+    border-bottom: 1px solid var(--mu3-line);
+  }
+
+  .map-resize-handle::before {
+    left: 50%;
+    width: 3.25rem;
+    height: 0.28rem;
+    background: rgb(43 18 176 / 48%);
+    border: 0;
+    box-shadow:
+      0 -0.34rem 0 -0.08rem rgb(43 18 176 / 24%),
+      0 0.34rem 0 -0.08rem rgb(43 18 176 / 24%);
+    transform: translate(-50%, -50%);
   }
 
   .map-tools {
@@ -629,6 +659,18 @@ body.is-resizing-map * {
     margin: 0.8rem 0 1.15rem;
   }
 
+  .event-panel {
+    padding-top: 0.8rem;
+  }
+
+  .time-console {
+    padding-bottom: 0.4rem;
+  }
+
+  .timeline-events {
+    height: 1.25rem;
+  }
+
   .time-controls {
     grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
     gap: 0.45rem;
@@ -648,9 +690,7 @@ body.is-resizing-map * {
 
 @media (prefers-reduced-motion: reduce) {
   .map-tools button,
-  .event-step,
-  .country,
-  .region-overlay {
+  .event-step {
     transition: none;
   }
 }

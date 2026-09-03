@@ -149,6 +149,42 @@
     applyFilters();
   });
 
+  const enableEventFilters = (targetEvent) => {
+    const typeFilter = filters.find((input) => (
+      input.name === 'chronol-type' && input.value === targetEvent.dataset.type
+    ));
+    if (typeFilter) typeFilter.checked = true;
+
+    const eventFactions = targetEvent.dataset.factions?.split(/\s+/).filter(Boolean) ?? [];
+    const hasEnabledFaction = eventFactions.some((faction) => filters.some((input) => (
+      input.name === 'chronol-faction' && input.value === faction && input.checked
+    )));
+    if (!hasEnabledFaction) {
+      const factionFilter = filters.find((input) => (
+        input.name === 'chronol-faction' && eventFactions.includes(input.value)
+      ));
+      if (factionFilter) factionFilter.checked = true;
+    }
+  };
+
+  document.addEventListener('site-search-reveal', (event) => {
+    const target = event.detail?.target;
+    const targetEvent = target?.closest('.chronol-event');
+    const targetCallout = target?.closest('.chronol-callout');
+    if (!targetEvent?.hidden && !targetCallout?.hidden) return;
+
+    if (targetEvent) {
+      enableEventFilters(targetEvent);
+    } else if (targetCallout) {
+      const relatedIds = targetCallout.dataset.relatedEvents?.split(/\s+/).filter(Boolean) ?? [];
+      const relatedEvent = relatedIds
+        .map((eventId) => document.getElementById(eventId))
+        .find((candidate) => candidate?.classList.contains('chronol-event'));
+      if (relatedEvent) enableEventFilters(relatedEvent);
+    }
+    applyFilters();
+  });
+
   const highlightTarget = () => {
     let id = '';
     try {

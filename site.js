@@ -184,6 +184,7 @@
   const griffonSurfaces = [...landing.querySelectorAll('[data-home-griffon-surface]')];
   const parallaxSections = [...landing.querySelectorAll('[data-home-parallax]')];
   const carousel = landing.querySelector('[data-home-carousel]');
+  const carouselViewport = landing.querySelector('.home-carousel__viewport');
   const carouselTrack = landing.querySelector('[data-home-carousel-track]');
   const carouselSlides = [...landing.querySelectorAll('[data-home-carousel-slide]')];
   const carouselDots = [...landing.querySelectorAll('[data-home-carousel-dot]')];
@@ -195,6 +196,9 @@
   const rootStyle = document.body.style;
   let carouselIndex = 0;
   let carouselTimer;
+  let carouselSwipeStart;
+  let suppressCarouselClick = false;
+  let suppressCarouselClickTimer;
   let scrollFrame;
   let headerRevealTimer;
   let headerWasCompact = document.body.classList.contains('is-home-header-compact');
@@ -392,6 +396,57 @@
     if (reducedMotion.matches) return;
     carouselTimer = window.setInterval(() => setCarousel(carouselIndex + 1, { restart: false }), 6800);
   };
+
+  carouselViewport?.addEventListener('pointerdown', (event) => {
+    if (desktop.matches || !event.isPrimary || event.button !== 0) return;
+    carouselSwipeStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    carouselViewport.setPointerCapture(event.pointerId);
+    stopCarousel();
+  });
+
+  carouselViewport?.addEventListener('pointerup', (event) => {
+    if (!carouselSwipeStart || event.pointerId !== carouselSwipeStart.pointerId) return;
+
+    const deltaX = event.clientX - carouselSwipeStart.x;
+    const deltaY = event.clientY - carouselSwipeStart.y;
+    carouselSwipeStart = undefined;
+    carouselViewport.releasePointerCapture(event.pointerId);
+
+    if (Math.abs(deltaX) < 50 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) {
+      startCarousel();
+      return;
+    }
+
+    event.preventDefault();
+    suppressCarouselClick = true;
+    window.clearTimeout(suppressCarouselClickTimer);
+    suppressCarouselClickTimer = window.setTimeout(() => {
+      suppressCarouselClick = false;
+    }, 500);
+    setCarousel(carouselIndex + (deltaX < 0 ? 1 : -1));
+  });
+
+  carouselViewport?.addEventListener('pointercancel', (event) => {
+    if (!carouselSwipeStart || event.pointerId !== carouselSwipeStart.pointerId) return;
+    carouselSwipeStart = undefined;
+    startCarousel();
+  });
+
+  carouselViewport?.addEventListener(
+    'click',
+    (event) => {
+      if (!suppressCarouselClick) return;
+      suppressCarouselClick = false;
+      window.clearTimeout(suppressCarouselClickTimer);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    true
+  );
 
   previousButton?.addEventListener('click', () => setCarousel(carouselIndex - 1));
   nextButton?.addEventListener('click', () => setCarousel(carouselIndex + 1));
@@ -1340,6 +1395,13 @@
     true,
   );
 
+  document.addEventListener('site-search-reveal', (event) => {
+    if (!mobileDetailMedia.matches) return;
+    const targetSection = getTargetSection(event.detail?.target);
+    const entry = sections.find(({ section }) => section === targetSection);
+    if (entry) setSectionExpanded(entry, true);
+  });
+
   window.addEventListener('hashchange', () => expandHashTarget(true));
   window.addEventListener('pageshow', () => {
     if (window.location.hash) expandHashTarget(true);
@@ -1895,4 +1957,232 @@
   window.addEventListener('resize', scheduleUpdate);
   desktop.addEventListener('change', scheduleUpdate);
   update();
+})();
+
+(() => {
+  const SEARCH_PARAM = 'site-search';
+  const SEARCH_TERM_PARAM = 'site-search-term';
+  const DASHES = /[‐‑‒–—―−ー]/g;
+  const searchParams = new URLSearchParams(window.location.search);
+  const rawQuery = searchParams.get(SEARCH_PARAM)?.trim();
+  const main = document.querySelector('main');
+  if (!rawQuery || !main) return;
+
+  const normalize = (value) => value
+    .normalize('NFKC')
+    .toLocaleLowerCase('ja')
+    .replace(DASHES, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const resolvedTerms = searchParams.getAll(SEARCH_TERM_PARAM).map(normalize).filter(Boolean);
+  const terms = [...new Set(
+    resolvedTerms.length
+      ? resolvedTerms
+      : normalize(rawQuery).split(' ').filter(Boolean),
+  )];
+  if (terms.join('').length < 2) return;
+
+  const normalizedCharacterMap = (value) => {
+    const characters = Array.from(value);
+    const map = [];
+    let normalizedText = '';
+    characters.forEach((character, characterIndex) => {
+      const normalizedCharacter = character
+        .normalize('NFKC')
+        .toLocaleLowerCase('ja')
+        .replace(DASHES, '-');
+      normalizedText += normalizedCharacter;
+      for (let index = 0; index < normalizedCharacter.length; index += 1) {
+        map.push(characterIndex);
+      }
+    });
+    return { characters, map, normalizedText };
+  };
+
+  const rangesForText = (value) => {
+    const { characters, map, normalizedText } = normalizedCharacterMap(value);
+    const ranges = [];
+    terms.forEach((term) => {
+      let from = 0;
+      while (from < normalizedText.length) {
+        const found = normalizedText.indexOf(term, from);
+        if (found < 0) break;
+        const start = map[found];
+        const end = map[found + term.length - 1] + 1;
+        if (Number.isInteger(start) && Number.isInteger(end)) ranges.push([start, end]);
+        from = found + Math.max(1, term.length);
+      }
+    });
+    ranges.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+
+    const merged = [];
+    ranges.forEach(([start, end]) => {
+      const previous = merged.at(-1);
+      if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
+      else merged.push([start, end]);
+    });
+    return { characters, ranges: merged };
+  };
+
+  const excludedSelector = [
+    'script',
+    'style',
+    'svg',
+    'canvas',
+    'template',
+    'noscript',
+    'nav',
+    'footer',
+    'form',
+    'button',
+    '[aria-hidden="true"]',
+    '.visually-hidden',
+    '.mu3-anchor-alias',
+  ].join(',');
+  const walker = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => (
+      node.nodeValue?.trim() && !node.parentElement?.closest(excludedSelector)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT
+    ),
+  });
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+  const matches = [];
+  textNodes.forEach((node) => {
+    const { characters, ranges } = rangesForText(node.nodeValue || '');
+    if (!ranges.length) return;
+
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    ranges.forEach(([start, end]) => {
+      if (start > cursor) {
+        fragment.append(document.createTextNode(characters.slice(cursor, start).join('')));
+      }
+      const mark = document.createElement('mark');
+      mark.className = 'site-search-match';
+      mark.textContent = characters.slice(start, end).join('');
+      fragment.append(mark);
+      matches.push(mark);
+      cursor = end;
+    });
+    if (cursor < characters.length) {
+      fragment.append(document.createTextNode(characters.slice(cursor).join('')));
+    }
+    node.replaceWith(fragment);
+  });
+
+  const panel = document.createElement('aside');
+  const summary = document.createElement('p');
+  const query = document.createElement('strong');
+  const position = document.createElement('span');
+  const controls = document.createElement('div');
+  const previous = document.createElement('button');
+  const next = document.createElement('button');
+  const clear = document.createElement('button');
+
+  panel.className = 'site-search-guide';
+  panel.setAttribute('aria-label', 'サイト内検索のページ内一致');
+  summary.className = 'site-search-guide__summary';
+  query.className = 'site-search-guide__query';
+  query.textContent = `「${rawQuery}」`;
+  query.title = rawQuery;
+  position.className = 'site-search-guide__position';
+  position.setAttribute('role', 'status');
+  position.setAttribute('aria-live', 'polite');
+  position.setAttribute('aria-atomic', 'true');
+  summary.append(query, position);
+  controls.className = 'site-search-guide__controls';
+  previous.type = 'button';
+  previous.textContent = '前へ';
+  next.type = 'button';
+  next.textContent = '次へ';
+  clear.type = 'button';
+  clear.textContent = '解除';
+  previous.disabled = matches.length < 2;
+  next.disabled = matches.length < 2;
+  controls.append(previous, next, clear);
+  panel.append(summary, controls);
+  document.body.append(panel);
+
+  const initialMatchIndex = () => {
+    if (!window.location.hash || !matches.length) return 0;
+    let target;
+    try {
+      target = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    } catch (error) {
+      console.warn('Search result anchor could not be decoded', error);
+    }
+    if (!target) return 0;
+    const contained = matches.findIndex((mark) => target.contains(mark));
+    if (contained >= 0) return contained;
+    const following = matches.findIndex((mark) => (
+      target.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING
+    ));
+    return following >= 0 ? following : 0;
+  };
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let currentIndex = initialMatchIndex();
+
+  const revealMatch = (mark) => {
+    let details = mark.closest('details');
+    while (details) {
+      details.open = true;
+      details = details.parentElement?.closest('details');
+    }
+    document.dispatchEvent(new CustomEvent('site-search-reveal', {
+      detail: { target: mark, query: rawQuery },
+    }));
+  };
+
+  const activate = (index, scroll = true) => {
+    matches[currentIndex]?.classList.remove('site-search-match--active');
+    if (!matches.length) {
+      position.textContent = '0 / 0';
+      return;
+    }
+    currentIndex = (index + matches.length) % matches.length;
+    const mark = matches[currentIndex];
+    mark.classList.add('site-search-match--active');
+    revealMatch(mark);
+    position.textContent = `${currentIndex + 1} / ${matches.length}`;
+    if (scroll) {
+      window.requestAnimationFrame(() => {
+        if (!mark.classList.contains('site-search-match--active')) return;
+        mark.scrollIntoView({
+          behavior: reducedMotion.matches ? 'auto' : 'smooth',
+          block: 'center',
+          inline: 'nearest',
+        });
+      });
+    }
+  };
+
+  const removeSearchContext = () => {
+    const parents = new Set();
+    matches.forEach((mark) => {
+      if (mark.parentNode) parents.add(mark.parentNode);
+      mark.replaceWith(document.createTextNode(mark.textContent || ''));
+    });
+    parents.forEach((parent) => parent.normalize());
+    panel.remove();
+    const url = new URL(window.location.href);
+    url.searchParams.delete(SEARCH_PARAM);
+    url.searchParams.delete(SEARCH_TERM_PARAM);
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  };
+
+  previous.addEventListener('click', () => activate(currentIndex - 1));
+  next.addEventListener('click', () => activate(currentIndex + 1));
+  clear.addEventListener('click', removeSearchContext);
+  activate(currentIndex, false);
+  window.addEventListener('pageshow', () => {
+    window.requestAnimationFrame(() => activate(currentIndex));
+  }, { once: true });
 })();

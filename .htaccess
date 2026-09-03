@@ -1,0 +1,25 @@
+RewriteEngine On
+
+# Redirect legacy mu3 frame and compatibility pages to their current pages.
+RewriteRule ^mu3/blank\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/chronol_main\.html$ /mu3/chronol.html [R=301,L]
+RewriteRule ^mu3/chronol_side\.html$ /mu3/chronol.html [R=301,L]
+RewriteRule ^mu3/com_main\.html$ /mu3/commrec.html [R=301,L]
+RewriteRule ^mu3/comment_main\.html$ /mu3/comment.html [R=301,L]
+RewriteRule ^mu3/comment_side\.html$ /mu3/comment.html [R=301,L]
+RewriteRule ^mu3/commrec_main\.html$ /mu3/commrec.html [R=301,L]
+RewriteRule ^mu3/commrec_side\.html$ /mu3/commrec.html [R=301,L]
+RewriteRule ^mu3/contents\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/gloss_main\.html$ /mu3/gloss.html [R=301,L]
+RewriteRule ^mu3/gloss_side\.html$ /mu3/gloss.html [R=301,L]
+RewriteRule ^mu3/index_main\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/index_side\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/jflintpr_main1\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/jflintpr_main2\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/jflintpr_side\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/jflintpr\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/menu\.html$ /mu3/ [R=301,L]
+RewriteRule ^mu3/radiorec_main\.html$ /mu3/radiorec.html [R=301,L]
+RewriteRule ^mu3/radiorec_side\.html$ /mu3/radiorec.html [R=301,L]
+
+ErrorDocument 404 /404.html

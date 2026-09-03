@@ -20,12 +20,17 @@
 }
 
 @media (max-width: 760px) {
+  .home-page .home-carousel__viewport {
+    touch-action: pan-y;
+  }
+
   .home-page .home-carousel__card--renewal {
     display: block;
   }
 
   .home-page .home-carousel__card--renewal .home-carousel__copy {
-    width: min(92%, 21rem);
+    width: min(92%, 23rem);
+    padding: 0.85rem 0.9rem 1rem;
   }
 
   .home-page .home-carousel__renewal-gallery {
