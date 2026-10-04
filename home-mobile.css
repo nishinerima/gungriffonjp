@@ -79,6 +79,11 @@
 }
 
 @media (max-width: 760px) {
+  .home-page .home-link-band__art,
+  .home-page .home-ww3-stage {
+    contain: layout paint style;
+  }
+
   .home-lp-header__surface {
     background: transparent;
   }
@@ -112,6 +117,7 @@
   .home-lp-header__brand p {
     position: static;
     margin: calc(clamp(0.6rem, 2vw, 0.75rem) + 4px) 0 0 0.08rem;
+    font-size: clamp(0.696rem, 3vw, 0.864rem);
   }
 
   .home-lp-main {
@@ -287,6 +293,22 @@
     .home-link-band__ghost {
     right: auto;
     left: -0.08em;
+  }
+
+  .home-page
+    :is(
+      .home-link-band--info,
+      .home-link-band--catalog
+    )
+    .home-link-band__title {
+    font-size: clamp(3rem, 15.5vw, 5.5rem);
+    white-space: nowrap;
+  }
+
+  .home-page
+    .home-link-band--info
+    .home-link-band__description {
+    bottom: 0.5rem;
   }
 
   .home-page .home-link-band--mu3 .home-link-band__headline--mu3,
@@ -523,8 +545,8 @@
     bottom: 2.2rem;
     width: 34.1%;
     color: #140078;
-    background: #fff;
-    border: 0;
+    background: #9fb8d4 url("/img_home/ww3-panel-light.svg?v=20260925-7") center / 100% 100% no-repeat;
+    border: 1px solid #cbd7ee;
     border-radius: 1.35rem 0 0 0;
     isolation: isolate;
     -webkit-mask-image:
@@ -561,6 +583,10 @@
         0
       )
       rotateY(-10deg);
+  }
+
+  .home-page .home-ww3-sheet--atlas .home-ww3-map__image {
+    object-position: 53% center;
   }
 
   .home-page .home-ww3-sheet--timeline {
@@ -662,13 +688,14 @@
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 1.75rem;
+    left: calc(1.35rem + 0.12rem + 0.1rem);
     width: 1px;
     background: #aebbd3;
-    content: "";
+    content: none;
   }
 
   .home-page .home-ww3-event {
+    position: relative;
     display: grid;
     grid-template-columns: 1.35rem 0.2rem minmax(0, 1fr);
     column-gap: 0.12rem;
@@ -682,8 +709,26 @@
     line-height: 1.5;
   }
 
+  .home-page .home-ww3-event::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(1.35rem + 0.12rem + 0.1rem);
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0 calc(0.7rem + 0.17rem),
+      #aebbd3 calc(0.7rem + 0.17rem) 100%
+    );
+    content: "";
+  }
+
+  .home-page .home-ww3-event:not(:last-child)::before {
+    bottom: -0.34rem;
+  }
+
   .home-page .home-ww3-event time {
-    padding: 0;
+    padding: 0.16rem 0 0;
     color: #140078;
     font-size: 0.34rem;
     line-height: 1.45;
@@ -694,7 +739,7 @@
     .home-ww3-event
     > .home-ww3-event__marker {
     align-self: start;
-    margin-top: 0.12rem;
+    margin-top: 0;
   }
 
   .home-page
@@ -702,7 +747,7 @@
     > .home-ww3-event__body {
     display: block;
     min-width: 0;
-    padding: 0 0 0.18rem 0.08rem;
+    padding: 0 0 0.18rem 0.18rem;
     overflow: visible;
     border: 0;
     font-size: 0.42rem;
@@ -714,22 +759,27 @@
     position: relative;
     z-index: 1;
     display: block;
-    width: 0.2rem;
-    height: 0.2rem;
-    background: #140078;
-    border-radius: 50%;
+    width: 0.7rem;
+    height: 0.7rem;
+    background: transparent;
+    border-radius: 0;
     box-shadow: none;
+    transform: translateX(-0.25rem);
   }
 
   .home-page .home-ww3-event__marker svg {
-    display: none;
+    display: block;
+    width: 0.64rem;
+    height: 0.64rem;
+    margin: 0.03rem auto 0;
+    padding: 0;
   }
 
   .home-page .home-ww3-tag {
     display: inline-block;
     margin: 0 0.05rem 0.08rem 0;
     padding: 0.02rem 0.06rem;
-    background: #fff;
+    background: transparent;
     border: 0.5px solid currentColor;
     border-radius: 0.08rem;
     font-size: 0.2rem;
@@ -741,18 +791,16 @@
     .home-ww3-event__body
     .home-ww3-tag {
     margin: 0 0.03rem 0.04rem 0;
-    padding: 0.01rem 0.04rem;
+    padding: 0.06rem 0.04rem 0;
     font-size: 0.18rem;
   }
 
   .home-page .home-ww3-tag--apc {
     color: #b82932;
-    background: #fff2f2;
   }
 
   .home-page .home-ww3-tag--peu {
     color: #167348;
-    background: #effaf4;
   }
 
   .home-page .home-ww3-glossary-entry {
@@ -1156,8 +1204,9 @@
   }
 
   .home-page .home-link-band--mu3 .home-ww3-sheet {
-    background: #fbfbf8;
-    filter: brightness(0.95);
+    background: #9fb8d4 url("/img_home/ww3-panel-light-desktop.svg?v=20260925-3") center / 100% 100% no-repeat;
+    border: 1px solid #cbd7ee;
+    filter: none;
   }
 
   .home-page .home-comrade-wordmark {
@@ -1335,22 +1384,51 @@
 
   .home-subsite-brand-link--wnpx,
   .home-page .home-wnpx-wordmark {
-    top: 1rem;
-    right: 1rem;
-    width: min(21%, 5rem);
+    display: none;
   }
 
-  .home-page .home-wnpx-wordmark {
-    z-index: 44;
-  }
-
-  .home-page .home-wnpx-wordmark img {
-    filter: drop-shadow(0.1rem 0.12rem 0 rgb(38 51 15 / 72%));
+  .home-link-band--wnpx .home-link-band__text-link::before {
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    right: -1%;
+    width: 68%;
+    aspect-ratio: 379.33 / 217.29;
+    background:
+      repeating-linear-gradient(
+        112deg,
+        #8e711b 0 2px,
+        #c6a02c 2px 5px,
+        #a88420 5px 8px
+      );
+    content: "";
+    mix-blend-mode: multiply;
+    opacity: 0.16;
+    transform: translateY(-50%) rotate(-11deg) scale(1.08);
+    -webkit-mask: url("/img_wnpx/wnpx_title.svg?v=20260730-3") center / contain no-repeat;
+    mask: url("/img_wnpx/wnpx_title.svg?v=20260730-3") center / contain no-repeat;
+    pointer-events: none;
   }
 
   .home-link-band--wnpx .home-link-band__text-link {
     top: 4.5rem;
+    overflow: hidden;
     padding-block: 0.68rem 0.62rem;
+    background:
+      radial-gradient(circle, rgb(42 31 17 / 22%) 0 0.7px, transparent 1px) 0 0 / 7px 7px,
+      #eee9d8;
+    box-shadow: 0.75rem 0.8rem 0 rgb(58 39 13 / 62%);
+    isolation: isolate;
+  }
+
+  .home-link-band--wnpx .home-link-band__headline,
+  .home-link-band--wnpx .home-link-band__subsite-name {
+    position: relative;
+    z-index: 1;
+  }
+
+  .home-link-band--wnpx .home-link-band__subsite-name {
+    color: #3b2716;
   }
 
   .home-link-band--wnpx .home-link-band__description {
@@ -1396,7 +1474,7 @@
   }
 
   .home-link-band--mu3 .home-link-band__description {
-    top: 15.2rem;
+    top: 14.7rem;
   }
 
   .home-page .home-ww3-sheet {
@@ -1467,7 +1545,23 @@
   }
 
   .home-link-band--comrade .home-link-band__description {
-    top: 15.8rem;
+    top: 15.3rem;
+  }
+
+  .home-page
+    .home-link-band--comrade
+    .home-link-band__text-link
+    .home-link-band__arrow::before {
+    inset: 50% auto auto 0;
+    display: block;
+    width: 1.05rem;
+    height: 1.35rem;
+    background: linear-gradient(to right, #ffb454, rgb(255 180 84 / 20%));
+    content: "";
+    transform: translateY(-50%);
+    -webkit-clip-path: polygon(0 0, 100% 50%, 0 100%);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    -webkit-text-fill-color: initial;
   }
 
   .home-page .home-comrade-screen--focus {
@@ -1488,5 +1582,80 @@
     height: 650px !important;
     min-height: 650px !important;
     max-height: 650px;
+  }
+}
+
+@media (min-width: 761px) {
+  .home-page .home-link-band--mu3 .home-ww3-sheet--glossary {
+    background-position: center 60%;
+    background-size: 112% 112%;
+  }
+
+  .home-page .home-link-band--mu3 .home-ww3-tag {
+    padding: 0.136rem 0.336rem 0.056rem;
+    font-size: 0.528rem;
+    border-width: 0.8px;
+    border-radius: 0.16rem;
+  }
+
+  .home-page
+    .home-link-band--mu3
+    :is(.home-ww3-field, .home-ww3-series) {
+    min-height: 1.16rem;
+    padding-inline: 0.36rem;
+    border-radius: 0.144rem;
+    font-size: 0.56rem;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1040px) {
+  .home-page
+    .home-link-band--mu3
+    :is(.home-ww3-field, .home-ww3-series) {
+    min-height: 1rem;
+    padding-inline: 0.256rem;
+    font-size: 0.48rem;
+  }
+}
+
+/* Light falls on the map fill; atlas boundary linework remains above it. */
+.home-page .home-link-band--mu3 .home-ww3-sheet--atlas {
+  background: #9fb8d4;
+}
+
+.home-page .home-link-band--mu3 .home-ww3-sheet--atlas::before {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  background: url("/img_home/ww3-panel-light.svg?v=20260925-7") center / 100% 100% no-repeat;
+  content: "";
+  pointer-events: none;
+}
+
+.home-page .home-link-band--mu3 .home-ww3-map--ink {
+  z-index: 4;
+  background: none;
+  pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .home-page .home-link-band--mu3 .home-ww3-map--ink {
+    position: absolute;
+    inset: 0;
+  }
+
+  .home-page
+    .home-link-band--mu3
+    .home-ww3-sheet--atlas
+    .home-ww3-map {
+    top: 1rem;
+    bottom: auto;
+    height: 56%;
+  }
+}
+
+@media (min-width: 761px) {
+  .home-page .home-link-band--mu3 .home-ww3-sheet--atlas::before {
+    background-image: url("/img_home/ww3-panel-light-desktop.svg?v=20260925-3");
   }
 }

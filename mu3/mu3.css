@@ -1,9 +1,5 @@
 @charset "UTF-8";
 
-html {
-  scrollbar-gutter: stable;
-}
-
 .mu3-page {
   --accent: #1a0099;
   --accent-dark: #100066;
@@ -199,8 +195,10 @@ html {
   background: transparent;
 }
 
-.mu3-rail-heading span {
-  display: block;
+.mu3-rail-heading > span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 1rem 1rem 0.85rem;
   color: #fff;
   background: transparent;
@@ -208,6 +206,11 @@ html {
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.mu3-rail-heading__icon {
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .mu3-rail-summary {
@@ -808,8 +811,9 @@ html {
 .mu3-icon--flag { --mu3-icon: url("/mu3/assets/icons/flag.svg"); }
 .mu3-icon--book { --mu3-icon: url("/mu3/assets/icons/book.svg"); }
 .mu3-icon--antenna { --mu3-icon: url("/mu3/assets/icons/antenna.svg"); }
+.mu3-icon--building-broadcast-tower { --mu3-icon: url("/mu3/assets/icons/building-broadcast-tower.svg"); }
 .mu3-icon--radio { --mu3-icon: url("/mu3/assets/icons/radio.svg"); }
-.mu3-icon--lily { --mu3-icon: url("/mu3/assets/icons/lily.svg"); }
+.mu3-icon--street-lamp { --mu3-icon: url("/mu3/assets/icons/street-lamp.svg?v=20260904-4"); }
 .mu3-icon--message-circle { --mu3-icon: url("/mu3/assets/icons/message-circle.svg"); }
 .mu3-icon--door-exit { --mu3-icon: url("/mu3/assets/icons/door-exit.svg"); }
 .mu3-icon--map-2 { --mu3-icon: url("/mu3/assets/icons/map-2.svg"); }
@@ -908,17 +912,6 @@ html {
   border-radius: 1rem 0 0.3rem 0;
   font-size: clamp(1.08rem, 2.1vw, 1.35rem);
   line-height: 1.5;
-}
-
-.mu3-page--radiorec .mu3-heading-note {
-  display: inline-block;
-  margin-left: 0.55em;
-  color: var(--mu3-muted);
-  font-size: 0.62em;
-  font-weight: 500;
-  letter-spacing: 0;
-  opacity: 0.72;
-  vertical-align: 0.12em;
 }
 
 .mu3-document h3::after {
@@ -2257,19 +2250,8 @@ html {
 }
 
 .mu3-track-number {
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
   margin: -0.55rem 0 1rem !important;
-  color: var(--mu3-muted);
-  font-size: 0.72rem;
   letter-spacing: 0;
-}
-
-.mu3-track-number strong {
-  color: var(--mu3-blue);
-  font-size: 0.86rem;
-  letter-spacing: 0.02em;
 }
 
 .mu3-radio-record {
@@ -2367,6 +2349,7 @@ html {
   border-bottom: 1px solid #d6deec;
 }
 
+.mu3-track-number,
 .mu3-page--commrec .mu3-document th .normal,
 .mu3-page--comment .mu3-document th .normal {
   color: var(--mu3-muted);

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="falloff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".22" stop-color="#fff"/>
+      <stop offset=".36" stop-color="#fff" stop-opacity=".8"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity=".53"/>
+      <stop offset=".78" stop-color="#fff" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="core-falloff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset=".08" stop-color="#fff" stop-opacity=".65"/>
+      <stop offset=".14" stop-color="#fff"/>
+      <stop offset=".24" stop-color="#fff"/>
+      <stop offset=".36" stop-color="#fff" stop-opacity=".65"/>
+      <stop offset=".52" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset=".7" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft-edge" x="-50%" y="-30%" width="200%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <filter id="core-edge" x="-50%" y="-30%" width="200%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+  <path id="spread" d="M 48 4 C 42 4 39 13 35 25 C 29 44 19 70 8 104 L 88 104 C 77 70 67 44 61 25 C 57 13 54 4 48 4 Z" transform="translate(-80.4 -6) scale(2.8 1)" fill="url(#falloff)" opacity=".65" filter="url(#soft-edge)"/>
+  <path id="core" d="M 48 4 C 42 4 39 13 35 25 C 29 44 19 70 8 104 L 88 104 C 77 70 67 44 61 25 C 57 13 54 4 48 4 Z" transform="translate(-32.4 -6) scale(1.8 1)" fill="url(#core-falloff)" filter="url(#core-edge)"/>
+</svg>

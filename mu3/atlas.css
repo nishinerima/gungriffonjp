@@ -1,5 +1,7 @@
-html.mu3-atlas-document {
-  overflow-y: scroll;
+@media (min-width: 761px) {
+  .mu3-page--atlas {
+    overflow-y: scroll;
+  }
 }
 
 .mu3-page--atlas .mu3-page-summary {

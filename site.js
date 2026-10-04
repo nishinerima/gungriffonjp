@@ -190,6 +190,8 @@
   const carouselDots = [...landing.querySelectorAll('[data-home-carousel-dot]')];
   const previousButton = landing.querySelector('[data-home-carousel-prev]');
   const nextButton = landing.querySelector('[data-home-carousel-next]');
+  const edgePreviousButton = landing.querySelector('[data-home-carousel-edge-prev]');
+  const edgeNextButton = landing.querySelector('[data-home-carousel-edge-next]');
   const landingMeasuredSections = [
     ...new Set([...griffonSurfaces, ...parallaxSections, ...subsiteSections]),
   ];
@@ -210,18 +212,24 @@
   let mobileBottomLatched = false;
   let mobileScrollIntent = 0;
   let mobileTouchY = null;
+  let mobileLandingSectionsPrimed = false;
+  let mobileActiveGriffonSurfaces = new Set();
   let lastScrollTop = window.scrollY;
   let camoWidth = 0;
   let camoHeight = 0;
   let camoPixelRatio = 0;
   let mobileMenuOpen = false;
 
+  const usesFadedGriffonTreatment = (surface) =>
+    surface.classList.contains('home-link-band--parent') ||
+    surface.classList.contains('home-updates');
+
   const griffonLayers = griffonSurfaces.map((surface) => {
     const layer = document.createElement('span');
     layer.className = 'home-griffon-layer';
     if (surface.classList.contains('home-lp-hero-spacer')) {
       layer.classList.add('home-griffon-layer--header');
-    } else if (surface.classList.contains('home-link-band--parent')) {
+    } else if (usesFadedGriffonTreatment(surface)) {
       layer.classList.add('home-griffon-layer--parent');
     }
     layer.style.setProperty(
@@ -263,6 +271,8 @@
   };
   const isLandingSectionNearby = (rect, viewportHeight) =>
     rect.bottom >= -viewportHeight && rect.top <= viewportHeight * 2;
+  const isMobileLandingSectionVisible = (rect, viewportHeight) =>
+    rect.bottom >= 0 && rect.top <= viewportHeight;
   const readLandingSectionRects = () =>
     new Map(
       landingMeasuredSections.map((section) => [
@@ -450,6 +460,8 @@
 
   previousButton?.addEventListener('click', () => setCarousel(carouselIndex - 1));
   nextButton?.addEventListener('click', () => setCarousel(carouselIndex + 1));
+  edgePreviousButton?.addEventListener('click', () => setCarousel(carouselIndex - 1));
+  edgeNextButton?.addEventListener('click', () => setCarousel(carouselIndex + 1));
   carouselDots.forEach((dot, index) => {
     dot.addEventListener('click', () => setCarousel(index));
   });
@@ -668,7 +680,27 @@
 
     const griffonRect = griffon?.getBoundingClientRect();
     if (griffonRect) {
-      griffonLayers.forEach(({ surface, layer }) => {
+      const nextMobileActiveGriffonSurfaces = new Set(
+        griffonLayers
+          .filter(({ surface }) => {
+            const surfaceRect = landingSectionRects.get(surface);
+            return Boolean(
+              surfaceRect &&
+                surfaceRect.bottom >= -32 &&
+                surfaceRect.top <= viewportHeight + 32
+            );
+          })
+          .map(({ surface }) => surface)
+      );
+      const mobileGriffonLayers = mobileLandingSectionsPrimed
+        ? griffonLayers.filter(
+            ({ surface }) =>
+              nextMobileActiveGriffonSurfaces.has(surface) ||
+              mobileActiveGriffonSurfaces.has(surface)
+          )
+        : griffonLayers;
+
+      mobileGriffonLayers.forEach(({ surface, layer }) => {
         const surfaceRect = landingSectionRects.get(surface);
         if (!surfaceRect) return;
         const visibleTop = Math.max(griffonRect.top, surfaceRect.top);
@@ -691,9 +723,7 @@
           'clip-path',
           `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`
         );
-        const mobileSurfaceOpacity = surface.classList.contains(
-          'home-link-band--parent'
-        )
+        const mobileSurfaceOpacity = usesFadedGriffonTreatment(surface)
           ? 0.7
           : 1;
         setLandingStyleProperty(
@@ -707,9 +737,17 @@
         'opacity',
         String(mobileDockProgress)
       );
+      mobileActiveGriffonSurfaces = nextMobileActiveGriffonSurfaces;
     }
 
-    parallaxSections.forEach((section) => {
+    const mobileParallaxSections = mobileLandingSectionsPrimed
+      ? parallaxSections.filter((section) => {
+          const rect = landingSectionRects.get(section);
+          return rect && isMobileLandingSectionVisible(rect, viewportHeight);
+        })
+      : parallaxSections;
+
+    mobileParallaxSections.forEach((section) => {
       if (reducedMotion.matches) {
         removeLandingStyleProperty(section.style, '--home-parallax-near');
         removeLandingStyleProperty(section.style, '--home-parallax-mid');
@@ -744,7 +782,14 @@
       );
     });
 
-    subsiteSections.forEach((section) => {
+    const mobileSubsiteSections = mobileLandingSectionsPrimed
+      ? subsiteSections.filter((section) => {
+          const rect = landingSectionRects.get(section);
+          return rect && isMobileLandingSectionVisible(rect, viewportHeight);
+        })
+      : subsiteSections;
+
+    mobileSubsiteSections.forEach((section) => {
       const rect = landingSectionRects.get(section);
       if (!rect) return;
       if (!isLandingSectionNearby(rect, viewportHeight)) return;
@@ -767,6 +812,7 @@
       );
     });
 
+    mobileLandingSectionsPrimed = true;
     drawWnpxCamo(wnpxCamoRect);
     lastScrollTop = scrollTop;
     if (mobileNeedsDockFrame) requestLandingUpdate();
@@ -1023,7 +1069,7 @@
         'clip-path',
         `inset(${clipTop.toFixed(2)}px 0 ${clipBottom.toFixed(2)}px 0)`
       );
-      const surfaceOpacity = surface.classList.contains('home-link-band--parent')
+      const surfaceOpacity = usesFadedGriffonTreatment(surface)
         ? 0.7
         : 1;
       setLandingStyleProperty(
@@ -1130,6 +1176,8 @@
 
   const syncLandingMode = () => {
     stopCarousel();
+    mobileLandingSectionsPrimed = false;
+    mobileActiveGriffonSurfaces.clear();
     if (scrollFrame !== undefined) {
       window.cancelAnimationFrame(scrollFrame);
       scrollFrame = undefined;
@@ -1248,7 +1296,11 @@
   });
 
   window.addEventListener('scroll', requestLandingUpdate, { passive: true });
-  window.addEventListener('resize', requestLandingUpdate);
+  window.addEventListener('resize', () => {
+    mobileLandingSectionsPrimed = false;
+    mobileActiveGriffonSurfaces.clear();
+    requestLandingUpdate();
+  });
   if (desktop.addEventListener) {
     desktop.addEventListener('change', syncLandingMode);
     reducedMotion.addEventListener('change', syncLandingMode);
@@ -1261,6 +1313,8 @@
   window.addEventListener('pageshow', () => {
     mobileScrollIntent = 0;
     mobileTouchY = null;
+    mobileLandingSectionsPrimed = false;
+    mobileActiveGriffonSurfaces.clear();
     lastScrollTop = window.scrollY;
     requestLandingUpdate();
   });
@@ -1497,13 +1551,14 @@
   const itemSelector = document.body.classList.contains('mu3-page--gloss')
     ? ':scope > ul > li > a[href^="#"]'
     : 'a[href^="#"]';
-  const items = [...nav.querySelectorAll(itemSelector)]
+  const collectItems = () => [...nav.querySelectorAll(itemSelector)]
     .map((link) => {
       const id = decodeURIComponent(link.hash.slice(1));
       const target = id ? document.getElementById(id) : null;
       return target ? { link, target } : null;
     })
     .filter(Boolean);
+  let items = collectItems();
 
   if (!items.length) return;
 
@@ -1512,6 +1567,9 @@
   );
   const mobileNavMedia = window.matchMedia('(max-width: 760px)');
   const siteShell = nav.closest('.site-shell');
+  const pageScrollContainer = document.body.classList.contains('search-page')
+    ? siteShell
+    : null;
   const topLevelList = nav.querySelector(':scope > ul');
   let mobileToggle;
   let mobileLabel;
@@ -1543,6 +1601,11 @@
 
   const getLinkLabel = (link) => link.textContent.replace(/\s+/g, ' ').trim();
   const getHierarchyLabel = (link) => {
+    const searchResultRootLink = pageScrollContainer
+      ? link.closest('.search-result-nav')?.querySelector(':scope > a[href^="#"]')
+      : null;
+    if (searchResultRootLink) return getLinkLabel(searchResultRootLink);
+
     const labels = [];
     let item = link.closest('li');
 
@@ -1577,8 +1640,7 @@
   const setMobileNavOpen = (open) => {
     if (!mobileToggle) return;
 
-    const shouldOpen =
-      open && mobileNavMedia.matches && nav.classList.contains('is-mobile-stuck');
+    const shouldOpen = open && mobileNavMedia.matches;
     nav.classList.toggle('is-mobile-open', shouldOpen);
     updateMobileToggle();
   };
@@ -1599,15 +1661,13 @@
       syncMobileNavRowHeight();
     }
 
-    const isStuck = window.scrollY > 0 && nav.getBoundingClientRect().top <= 0.5;
+    const mobileScrollTop = pageScrollContainer?.scrollTop ?? window.scrollY;
+    const isStuck = mobileScrollTop > 0 && nav.getBoundingClientRect().top <= 0.5;
     const wasStuck = nav.classList.contains('is-mobile-stuck');
     nav.classList.toggle('is-mobile-stuck', isStuck);
     siteShell?.classList.toggle('is-mobile-nav-stuck', isStuck);
-    if (!isStuck) {
-      nav.classList.remove('is-mobile-open');
-      if (wasStuck || !mobileNavRowHeight) {
-        syncMobileNavRowHeight();
-      }
+    if (!isStuck && (wasStuck || !mobileNavRowHeight)) {
+      syncMobileNavRowHeight();
     }
     updateMobileToggle();
   };
@@ -1724,20 +1784,33 @@
   const update = () => {
     frame = undefined;
 
+    const usesPageScrollContainer = Boolean(pageScrollContainer);
+    const scrollTop = usesPageScrollContainer
+      ? pageScrollContainer.scrollTop
+      : window.scrollY;
+    const viewportHeight = usesPageScrollContainer
+      ? pageScrollContainer.clientHeight
+      : window.innerHeight;
+    const scrollHeight = usesPageScrollContainer
+      ? pageScrollContainer.scrollHeight
+      : document.documentElement.scrollHeight;
+    const containerTop = usesPageScrollContainer
+      ? pageScrollContainer.getBoundingClientRect().top
+      : 0;
     const header = document.querySelector('.site-header');
     const headerBottom = header
-      ? Math.max(0, header.getBoundingClientRect().bottom)
+      ? Math.max(0, header.getBoundingClientRect().bottom - containerTop)
       : 0;
-    const marker = window.scrollY + Math.max(headerBottom + 8, window.innerHeight * 0.28);
+    const marker = scrollTop + Math.max(headerBottom + 8, viewportHeight * 0.28);
     const atPageEnd =
-      window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+      scrollTop + viewportHeight >= scrollHeight - 2;
 
     let current = items[0];
-    if (window.scrollY > 0 && atPageEnd) {
+    if (scrollTop > 0 && atPageEnd) {
       current = items.at(-1);
-    } else if (window.scrollY > 0) {
+    } else if (scrollTop > 0) {
       for (const item of items) {
-        const top = item.target.getBoundingClientRect().top + window.scrollY;
+        const top = item.target.getBoundingClientRect().top - containerTop + scrollTop;
         if (top > marker) break;
         current = item;
       }
@@ -1754,6 +1827,14 @@
       return;
     }
 
+    if (mobileNavMedia.matches && pageScrollContainer) {
+      if (frame !== undefined) {
+        window.cancelAnimationFrame(frame);
+        frame = undefined;
+      }
+      update();
+      return;
+    }
     if (frame !== undefined) return;
     frame = window.requestAnimationFrame(update);
   };
@@ -1773,7 +1854,12 @@
   };
 
   window.addEventListener('scroll', scheduleUpdate, { passive: true });
+  pageScrollContainer?.addEventListener('scroll', scheduleUpdate, { passive: true });
   document.addEventListener('catalog-section-toggle', scheduleUpdate);
+  document.addEventListener('search-results-rendered', () => {
+    items = collectItems();
+    scheduleUpdate();
+  });
   window.addEventListener('resize', () => {
     mobileNavRowHeight = 0;
     scheduleUpdate();
@@ -1980,7 +2066,7 @@
       ? resolvedTerms
       : normalize(rawQuery).split(' ').filter(Boolean),
   )];
-  if (terms.join('').length < 2) return;
+  if (!terms.join('').length) return;
 
   const normalizedCharacterMap = (value) => {
     const characters = Array.from(value);
@@ -2092,6 +2178,7 @@
   position.setAttribute('role', 'status');
   position.setAttribute('aria-live', 'polite');
   position.setAttribute('aria-atomic', 'true');
+  position.style.inlineSize = `${String(matches.length).length * 2 + 3}ch`;
   summary.append(query, position);
   controls.className = 'site-search-guide__controls';
   previous.type = 'button';
@@ -2123,7 +2210,6 @@
     return following >= 0 ? following : 0;
   };
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let currentIndex = initialMatchIndex();
 
   const revealMatch = (mark) => {
@@ -2152,7 +2238,7 @@
       window.requestAnimationFrame(() => {
         if (!mark.classList.contains('site-search-match--active')) return;
         mark.scrollIntoView({
-          behavior: reducedMotion.matches ? 'auto' : 'smooth',
+          behavior: 'instant',
           block: 'center',
           inline: 'nearest',
         });

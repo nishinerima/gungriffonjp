@@ -136,12 +136,28 @@
     width: 100%;
   }
 
+  .comrade-page .global-nav .nav-comrade,
   .comrade-page .global-nav a:hover,
   .comrade-page .global-nav a:focus-visible {
     color: #fff;
     text-shadow:
       0 0 0.18rem rgb(255 255 255 / 68%),
       0 0 0.42rem rgb(255 255 255 / 28%);
+  }
+
+  .comrade-search-icon {
+    display: flex;
+    filter:
+      drop-shadow(0 0 0.18rem rgb(255 255 255 / 0%))
+      drop-shadow(0 0 0.42rem rgb(255 255 255 / 0%));
+    transition: filter 420ms ease;
+  }
+
+  .comrade-page .global-nav .nav-search:hover .comrade-search-icon,
+  .comrade-page .global-nav .nav-search:focus-visible .comrade-search-icon {
+    filter:
+      drop-shadow(0 0 0.18rem rgb(255 255 255 / 68%))
+      drop-shadow(0 0 0.42rem rgb(255 255 255 / 28%));
   }
 
   .comrade-page .global-nav a:not(.nav-button):hover,
@@ -259,6 +275,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .comrade-page .global-nav a:not(.nav-button),
+  .comrade-search-icon,
   .comrade-header-nav-label__face {
     transition: none;
   }
