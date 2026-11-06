@@ -81,6 +81,10 @@
 }
 
 @media (min-width: 761px) {
+  .mu3-page--chronol {
+    overflow-y: scroll;
+  }
+
   .mu3-page .site-rail__inner::before {
     position: absolute;
     z-index: 0;
@@ -850,24 +854,14 @@
   padding: clamp(1.15rem, 4vw, 3rem);
 }
 
-.mu3-document .legacy-content > :first-child {
+.mu3-document .legacy-content > :first-child,
+.mu3-document .mu3-document__body > :first-child {
   margin-top: 0;
 }
 
-.mu3-document .legacy-content > :last-child {
+.mu3-document .legacy-content > :last-child,
+.mu3-document .mu3-document__body > :last-child {
   margin-bottom: 0;
-}
-
-.mu3-document .mu3-mobile-summary + :is(h2, h3, h4, h5) {
-  margin-top: 0.4rem;
-}
-
-.mu3-page--commrec
-  .mu3-document
-  .mu3-mobile-summary
-  + .mu3-anchor-alias
-  + h3 {
-  margin-top: 0;
 }
 
 .mu3-content-header {
@@ -1365,6 +1359,11 @@
   accent-color: var(--mu3-blue);
 }
 
+.chronol-filter-options.is-default input {
+  accent-color: #9aa0af;
+  opacity: 0.65;
+}
+
 .chronol-filter-icon,
 .chronol-legend__icon {
   display: inline-grid;
@@ -1395,10 +1394,17 @@
   cursor: pointer;
 }
 
-.chronol-filter-reset:hover,
-.chronol-filter-reset:focus-visible {
+.chronol-filter-reset:not(:disabled):hover,
+.chronol-filter-reset:not(:disabled):focus-visible {
   color: #fff;
   background: var(--mu3-blue);
+}
+
+.chronol-filter-reset:disabled {
+  color: #9198a6;
+  background: #edf0f5;
+  border-color: #d5dbe5;
+  cursor: default;
 }
 
 .chronol-filter-reset:focus-visible {
@@ -1496,18 +1502,28 @@
 }
 
 .chronol-page .chronol-month__heading {
-  position: static;
+  position: relative;
   margin: 1.5rem 0 0.2rem;
-  padding: 0.4rem 0.65rem 0.4rem 8.8rem;
+  padding: 0.4rem 0.65rem 0.4rem 0.9rem;
   color: var(--mu3-blue-dark);
-  background: linear-gradient(90deg, transparent 0 8rem, var(--mu3-heading-soft) 8rem);
+  background: var(--mu3-heading-soft);
   border: 0;
   border-bottom: 1px solid var(--mu3-line);
-  border-radius: 0;
+  border-radius: 1.2rem 0 0 0;
+  overflow: hidden;
   font-size: 1rem;
 }
 
-.chronol-page .chronol-month__heading::before,
+.chronol-page .chronol-month__heading::before {
+  inset: 0 auto 0 calc(8.8rem + 0.5px);
+  z-index: 0;
+  width: 0.2rem;
+  background: var(--mu3-blue);
+  border-radius: 0;
+  content: "";
+  transform: translateX(-50%);
+}
+
 .chronol-page .chronol-month__heading::after {
   content: none;
 }
@@ -1516,21 +1532,24 @@
   font-size: 0.7em;
 }
 
-.chronol-chapter-label {
-  margin: 0.85rem 0 0.25rem 8.8rem !important;
-  padding: 0.4rem 0.7rem;
-  color: var(--mu3-blue-dark);
-  background: #eef3fc;
-  border-left: 0.2rem solid var(--mu3-blue);
-  font-size: 0.83rem;
-  font-weight: 700;
+.chronol-page .chronol-month__heading--chapter {
+  display: grid;
+  grid-template-columns: calc(7.9rem + 0.5px) minmax(0, 1fr);
+  align-items: baseline;
 }
 
-.chronol-chapter-label span {
-  margin-right: 0.65rem;
-  color: var(--mu3-blue);
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
+.chronol-month__date {
+  white-space: nowrap;
+}
+
+.chronol-month__chapter {
+  min-width: 0;
+  padding-left: 0.7rem;
+  font-size: 0.83rem;
+}
+
+.chronol-month__separator {
+  display: none;
 }
 
 .chronol-event {
@@ -1599,6 +1618,10 @@
   background: #fff;
   box-shadow: 0 0 0 0.28rem #fff;
   transform: translateY(2px);
+}
+
+.chronol-event--other .chronol-type-icon {
+  transform: translate(0.5px, 3.5px);
 }
 
 .chronol-type-dot {
@@ -1772,20 +1795,53 @@
   --callout-key: var(--mu3-blue);
   position: relative;
   z-index: 2;
-  margin: 1.2rem 0 1.7rem 8.8rem;
+  margin: 0.25rem 0 1.7rem 8.8rem;
   padding: 1rem 1.15rem 1.1rem;
   background: #f5f8fe;
   border: 1px solid #aebfdf;
-  border-top: 0.25rem solid var(--callout-key);
+  border-left: 0.25rem solid var(--callout-key);
   border-radius: 1.2rem 0 0.4rem 0;
   box-shadow: 0 0.35rem 0.8rem rgb(25 48 94 / 7%);
+}
+
+@media screen {
+  .chronol-event__body {
+    border-bottom-color: transparent;
+  }
+
+  .chronol-event:nth-last-child(1 of .chronol-event:not([hidden]), .chronol-callout:not([hidden]))
+    .chronol-event__body {
+    border-bottom-color: var(--mu3-line);
+  }
+
+  .chronol-event:not(:nth-child(1 of .chronol-event:not([hidden]), .chronol-callout:not([hidden])))::before {
+    position: absolute;
+    top: -1px;
+    right: 0;
+    left: 10rem;
+    height: 1px;
+    background: var(--mu3-line);
+    content: "";
+    pointer-events: none;
+  }
+
+  .chronol-callout:nth-last-child(1 of .chronol-event:not([hidden]), .chronol-callout:not([hidden]))::after {
+    position: absolute;
+    right: -1px;
+    bottom: -1.7rem;
+    left: calc(1.2rem - 0.25rem);
+    height: 1px;
+    background: var(--mu3-line);
+    content: "";
+    pointer-events: none;
+  }
 }
 
 .chronol-callout--turning-point {
   --callout-key: #9b2630;
   background: #fff8f6;
   border-color: #d5a6a0;
-  border-top-color: var(--callout-key);
+  border-left-color: var(--callout-key);
 }
 
 .chronol-callout--person {
@@ -1802,7 +1858,7 @@
   --callout-key: #87600d;
   background: #fffaf0;
   border-color: #d8c18e;
-  border-top-color: var(--callout-key);
+  border-left-color: var(--callout-key);
 }
 
 .chronol-callout__label {
@@ -2497,6 +2553,9 @@
 }
 
 .mu3-anchor-alias {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   height: 0;
   scroll-margin-top: calc(var(--mu3-site-header-height) + 5.4rem);
@@ -3024,15 +3083,22 @@
   .chronol-page .chronol-month__heading {
     margin-top: 1.2rem;
     padding-left: 2.35rem;
-    background: linear-gradient(
-      90deg,
-      transparent 0 1.6rem,
-      var(--mu3-heading-soft) 1.6rem
-    );
   }
 
-  .chronol-chapter-label {
-    margin: 0.7rem 0 0.15rem 2.35rem !important;
+  .chronol-page .chronol-month__heading::before {
+    left: calc(0.8rem + 0.5px);
+  }
+
+  .chronol-page .chronol-month__heading--chapter {
+    display: block;
+  }
+
+  .chronol-month__chapter {
+    padding-left: 0;
+  }
+
+  .chronol-month__separator {
+    display: inline;
   }
 
   .chronol-event {
@@ -3067,6 +3133,10 @@
     height: 0.98rem;
   }
 
+  .chronol-event--other .chronol-type-icon {
+    transform: translate(0.5px, 2px);
+  }
+
   .chronol-type-dot {
     width: 0.58rem;
     height: 0.58rem;
@@ -3095,8 +3165,17 @@
   }
 
   .chronol-callout {
-    margin: 1rem 0 1.4rem 2.35rem;
+    margin: 0.25rem 0 1.4rem 2.35rem;
     padding: 0.9rem;
+  }
+
+  .chronol-event:not(:nth-child(1 of .chronol-event:not([hidden]), .chronol-callout:not([hidden])))::before {
+    left: 1.6rem;
+  }
+
+  .chronol-callout:nth-last-child(1 of .chronol-event:not([hidden]), .chronol-callout:not([hidden]))::after {
+    bottom: -1.4rem;
+    left: calc(-0.75rem - 0.25rem);
   }
 
   .chronol-callout__related ul {
@@ -3240,6 +3319,14 @@
     margin-bottom: 8pt;
   }
 
+  .chronol-page .chronol-month__heading::before {
+    left: calc(79pt + 0.5px);
+  }
+
+  .chronol-page .chronol-month__heading--chapter {
+    grid-template-columns: calc(79pt - 0.9rem + 0.5px) minmax(0, 1fr);
+  }
+
   .chronol-event {
     display: grid !important;
     grid-template-columns: 70pt 18pt minmax(0, 1fr);
@@ -3278,7 +3365,7 @@
     color: #000;
     background: #fff;
     border: 1px solid #777;
-    border-top: 3px solid #222;
+    border-left: 3px solid #222;
     box-shadow: none;
     break-inside: avoid;
   }

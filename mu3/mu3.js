@@ -100,10 +100,18 @@
   const reset = page.querySelector('.chronol-filter-reset');
   const status = page.querySelector('.chronol-filter-status');
   const sources = [...page.querySelectorAll('.chronol-source')];
+  const activeFilterGroups = new Set();
   let printState = null;
   let highlightTimer = 0;
 
   const applyFilters = () => {
+    filters.forEach((input) => {
+      const isDefault = !activeFilterGroups.has(input.name);
+      input.indeterminate = isDefault;
+      input.closest('.chronol-filter-options')?.classList.toggle('is-default', isDefault);
+    });
+    if (reset) reset.disabled = activeFilterGroups.size === 0;
+
     const types = new Set(
       filters
         .filter((input) => input.name === 'chronol-type' && input.checked)
@@ -137,12 +145,21 @@
     });
 
     if (status) {
-      status.textContent = `${events.length}件中${visibleIds.size}件を表示`;
+      status.textContent = `${events.length}件中${visibleIds.size}件を表示中`;
     }
   };
 
-  filters.forEach((input) => input.addEventListener('change', applyFilters));
+  filters.forEach((input) => input.addEventListener('change', () => {
+    if (!activeFilterGroups.has(input.name)) {
+      filters.filter((item) => item.name === input.name).forEach((item) => {
+        item.checked = item === input;
+      });
+      activeFilterGroups.add(input.name);
+    }
+    applyFilters();
+  }));
   reset?.addEventListener('click', () => {
+    activeFilterGroups.clear();
     filters.forEach((input) => {
       input.checked = true;
     });

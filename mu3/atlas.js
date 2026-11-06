@@ -75,12 +75,6 @@
     }
     return { ...event, index, dateSequence };
   });
-  const seamlessCountryIds = new Set([
-    ...Object.values(data.regions)
-      .map(region => region.territoryCountry)
-      .filter(Boolean),
-    ...(data.hiddenCountryBorders || []).flat()
-  ]);
   let currentIndex = 0;
   let currentCameraName = "";
   let projection;
@@ -415,11 +409,11 @@
       const countryId = normalizeCountryId(country.id);
       const target = "country:" + countryId;
       const fill = paintFor(emphasis.get(target) || state.get(target), patternVariant);
-      const stroke = seamlessCountryIds.has(countryId) ? fill : null;
+      const stroke = fill;
       return {
         fill,
         stroke,
-        signature: [fill, stroke || ""].join("|")
+        signature: [fill, stroke].join("|")
       };
     };
     const countries = mapLayer.selectAll("path.country:not(.territory-transition-old)");
@@ -597,6 +591,8 @@
 
   const labelScreenOffset = event => event.camera === "world" ? 15 : -10;
 
+  const stripeScreenPeriod = 8;
+
   function createStripeGradients(defs) {
     const pairs = new Map();
     events.forEach(event => {
@@ -609,8 +605,7 @@
     const stripeVariants = Array.from(pairs.values()).flatMap(fill =>
       Object.keys(data.cameras).map(cameraName => ({
         cameraName,
-        fill,
-        scale: data.cameras[cameraName].zoom
+        fill
       }))
     );
     const stripeGradients = defs.selectAll("linearGradient.atlas-stripe")
@@ -621,7 +616,7 @@
       .attr("gradientUnits", "userSpaceOnUse")
       .attr("x1", 0)
       .attr("y1", 0)
-      .attr("x2", stripe => 8 / stripe.scale)
+      .attr("x2", stripeScreenPeriod)
       .attr("y2", 0)
       .attr("spreadMethod", "repeat");
     stripeGradients.each(function (stripe) {
@@ -655,6 +650,19 @@
     const markerScreenSize = frame.clientWidth <= 624 ? 7 : 12;
     const markerUserSize = markerScreenSize / Math.max(scale, 0.001);
     routeArrow.attr("markerWidth", markerUserSize).attr("markerHeight", markerUserSize);
+  }
+
+  function updateStripeScale(scale) {
+    const safeScale = Math.max(scale, 0.001);
+    svg.selectAll("linearGradient.atlas-stripe")
+      .attr("x2", stripeScreenPeriod / safeScale);
+  }
+
+  function updateMapLineScale(scale) {
+    const [minimumScale] = zoom.scaleExtent();
+    const maximumStrokeScale = 8;
+    const progress = Math.max(0, Math.min(1, (scale - minimumScale) / (maximumStrokeScale - minimumScale)));
+    mapLayer.style("--atlas-line-scale", 1 + 2 * progress);
   }
 
   function updateZoomButtons(scale) {
@@ -699,6 +707,8 @@
     clearTerritoryTransitions();
     const width = frame.clientWidth;
     const height = frame.clientHeight;
+    updateStripeScale(d3.zoomTransform(svg.node()).k);
+    updateMapLineScale(d3.zoomTransform(svg.node()).k);
     updateRouteArrowSize(d3.zoomTransform(svg.node()).k);
     svg.attr("viewBox", "0 0 " + width + " " + height);
     projection.fitExtent([[24, 24], [width - 24, height - 24]], { type: "Sphere" });
@@ -714,7 +724,7 @@
 
   async function init() {
     try {
-      const world = await d3.json("/mu3/assets/vendor/world-atlas/countries-110m.json");
+      const world = await d3.json("/mu3/assets/vendor/world-atlas/countries-110m.json?v=20261004-2");
       reassignTerritoryRegions(world);
       countries = topojson.feature(world, world.objects.countries).features;
       countriesById = new Map(
@@ -766,9 +776,11 @@
       mapLayer.append("path").datum(borders).attr("class", "country-boundary");
       eventLayer = svg.append("g").attr("class", "event-layer");
 
-      zoom = d3.zoom().scaleExtent([0.65, 8]).on("zoom", zoomEvent => {
+      zoom = d3.zoom().scaleExtent([0.65, 16]).on("zoom", zoomEvent => {
         mapLayer.attr("transform", zoomEvent.transform);
         eventLayer.attr("transform", zoomEvent.transform);
+        updateStripeScale(zoomEvent.transform.k);
+        updateMapLineScale(zoomEvent.transform.k);
         updateEventSymbolScale(zoomEvent.transform.k);
         updateRouteArrowSize(zoomEvent.transform.k);
         updateZoomButtons(zoomEvent.transform.k);

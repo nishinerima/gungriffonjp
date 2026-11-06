@@ -18,7 +18,7 @@
     || !resultNav || !resultNavSummary || !resultNavList
   ) return;
 
-  const INDEX_URL = "/search-index.json?v=20261004-2";
+  const INDEX_URL = "/search-index.json?v=20261106-2";
   const MAX_QUERY_LENGTH = 256;
   const MAX_QUERY_TERMS = 20;
   const MAX_ONE_CHARACTER_HITS = 100;
